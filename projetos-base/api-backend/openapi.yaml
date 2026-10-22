@@ -1,0 +1,917 @@
+openapi: 3.0.3
+info:
+  title: LojaQA API
+  version: 2.0.0
+  description: |
+    API da plataforma LojaQA para autenticação, catálogo, pedidos e administração.
+
+    Rotas administrativas exigem um token JWT de um usuário com perfil `admin`.
+    As rotas `/seller` aceitam usuários `seller` e `admin`; rotas de pedidos do
+    cliente aceitam usuários autenticados que não estejam bloqueados.
+  contact:
+    name: Projeto LojaQA
+servers:
+  - url: https://api-qa-fap2026.onrender.com/api
+    description: Produção
+  - url: http://localhost:3000/api
+    description: Desenvolvimento local
+tags:
+  - name: Saúde
+  - name: Autenticação
+  - name: Catálogo
+  - name: Pedidos
+  - name: Lojista
+  - name: Administração
+paths:
+  /health:
+    get:
+      tags: [Saúde]
+      summary: Verifica a disponibilidade da API
+      responses:
+        '200':
+          description: API disponível
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [service, version, status]
+                properties:
+                  service:
+                    type: string
+                    example: lojaqa-api
+                  version:
+                    type: string
+                    example: '2.0'
+                  status:
+                    type: string
+                    example: ok
+  /login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica um usuário
+      description: Limite de 5 tentativas por IP a cada 15 minutos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@exemplo.com
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                  example: MinhaSenha123
+      responses:
+        '200':
+          description: Autenticação realizada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, token, user]
+                properties:
+                  message:
+                    type: string
+                    example: Autenticado com sucesso
+                  token:
+                    type: string
+                    description: JWT válido por 1 hora.
+                  user:
+                    $ref: '#/components/schemas/AuthenticatedUser'
+        '400':
+          description: Campos obrigatórios ausentes, e-mail inválido ou senha fora dos limites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Usuário bloqueado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Limite de tentativas excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /register:
+    post:
+      tags: [Autenticação]
+      summary: Cadastra um usuário ou lojista
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                  example: Ana Silva
+                email:
+                  type: string
+                  format: email
+                  example: ana@exemplo.com
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                  example: MinhaSenha123
+                role:
+                  type: string
+                  enum: [user, seller]
+                  default: user
+                storeName:
+                  type: string
+                  maxLength: 80
+                  description: Obrigatório para cadastro com perfil seller.
+                  example: Loja da Ana
+      responses:
+        '201':
+          description: Usuário cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Dados inválidos ou campos obrigatórios ausentes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Já existe usuário com este e-mail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /forgot-password:
+    post:
+      tags: [Autenticação]
+      summary: Solicita a recuperação de senha
+      description: Limite de 3 solicitações por IP a cada hora. A resposta não revela se o e-mail está cadastrado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@exemplo.com
+      responses:
+        '200':
+          description: Solicitação recebida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: E-mail ausente ou inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: Limite de solicitações excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /reset-password:
+    post:
+      tags: [Autenticação]
+      summary: Redefine a senha com o token de recuperação
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, token, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: usuario@exemplo.com
+                token:
+                  type: string
+                  example: 0f1e2d3c4b5a
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                  example: NovaSenha123
+      responses:
+        '200':
+          description: Senha redefinida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Dados inválidos ou token expirado/inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /products:
+    get:
+      tags: [Catálogo]
+      summary: Lista e filtra produtos ativos
+      parameters:
+        - name: search
+          in: query
+          description: Busca no nome, descrição, categoria ou ID do produto.
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: sellerId
+          in: query
+          description: ID do lojista.
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+            minimum: 0
+      responses:
+        '200':
+          description: Lista de produtos com dados públicos da loja
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+  /products/categories:
+    get:
+      tags: [Catálogo]
+      summary: Lista categorias que possuem produtos ativos
+      responses:
+        '200':
+          description: Lista de nomes de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: [Áudio, Periféricos]
+  /orders:
+    post:
+      tags: [Pedidos]
+      summary: Cria um pedido para o usuário autenticado
+      description: O total e os preços são calculados pela API com base nos produtos atuais; o estoque é atualizado após a criação.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, shippingAddress]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId:
+                        type: string
+                        example: 65f1a2b3c4d5e6f789012345
+                      quantity:
+                        type: integer
+                        minimum: 1
+                        example: 2
+                shippingAddress:
+                  type: string
+                  maxLength: 300
+                  example: Rua das Flores, 123, Recife - PE, 50000-000
+      responses:
+        '201':
+          description: Pedido criado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, order]
+                properties:
+                  message:
+                    type: string
+                    example: Pedido criado com sucesso.
+                  order:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: Itens, endereço, produto ou quantidade inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou usuário sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: Estoque insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /orders/me:
+    get:
+      tags: [Pedidos]
+      summary: Lista os pedidos do usuário autenticado
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pedidos do usuário, do mais recente para o mais antigo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou usuário sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /seller/products:
+    get:
+      tags: [Lojista]
+      summary: Lista produtos gerenciados pelo lojista
+      description: Um administrador recebe todos os produtos; lojistas recebem apenas os próprios produtos.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de produtos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags: [Lojista]
+      summary: Cadastra um produto
+      description: Lojistas são associados à própria conta. Administradores também devem enviar sellerId.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, category, price, stock]
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                  example: Teclado Mecânico
+                description:
+                  type: string
+                  maxLength: 1000
+                  example: Teclado mecânico com iluminação.
+                category:
+                  type: string
+                  maxLength: 60
+                  example: Periféricos
+                price:
+                  type: number
+                  minimum: 0
+                  example: 289.9
+                stock:
+                  type: integer
+                  minimum: 0
+                  example: 18
+                image:
+                  type: string
+                  example: https://exemplo.com/imagens/teclado.jpg
+                sellerId:
+                  type: string
+                  description: Obrigatório apenas para administradores.
+                  example: 65f1a2b3c4d5e6f789012345
+      responses:
+        '201':
+          description: Produto criado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, product]
+                properties:
+                  message:
+                    type: string
+                    example: Produto criado com sucesso.
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '400':
+          description: Dados obrigatórios inválidos ou sellerId ausente para administrador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /seller/products/{id}:
+    put:
+      tags: [Lojista]
+      summary: Atualiza um produto
+      description: Lojistas só podem atualizar os próprios produtos; administradores podem atualizar qualquer produto.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                description:
+                  type: string
+                  maxLength: 1000
+                category:
+                  type: string
+                  maxLength: 60
+                price:
+                  type: number
+                  minimum: 0
+                stock:
+                  type: integer
+                  minimum: 0
+                image:
+                  type: string
+                active:
+                  type: boolean
+      responses:
+        '200':
+          description: Produto atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, product]
+                properties:
+                  message:
+                    type: string
+                    example: Produto atualizado com sucesso.
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Produto não encontrado ou sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /seller/orders:
+    get:
+      tags: [Lojista]
+      summary: Lista pedidos associados à loja
+      description: Lojistas recebem pedidos que contêm produtos próprios; administradores recebem todos.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de pedidos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /seller/orders/{id}/status:
+    put:
+      tags: [Lojista]
+      summary: Atualiza o status de um pedido
+      description: Lojistas só podem alterar pedidos que contenham produtos próprios; administradores podem alterar qualquer pedido.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/OrderStatus'
+      responses:
+        '200':
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, order]
+                properties:
+                  message:
+                    type: string
+                    example: Status atualizado.
+                  order:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: Status inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Pedido não encontrado ou sem permissão
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /users:
+    get:
+      tags: [Administração]
+      summary: Lista usuários
+      description: Disponível somente para administradores. A senha não é incluída na resposta.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Token inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão de administrador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /users/{id}:
+    put:
+      tags: [Administração]
+      summary: Atualiza dados de um usuário
+      description: |
+        Disponível somente para administradores. Envie ao menos um campo para atualizar.
+        Alterar a role para `admin` ou `seller` exige a senha atual do administrador em `adminPassword`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                role:
+                  type: string
+                  enum: [user, seller, admin, blocked]
+                storeName:
+                  type: string
+                adminPassword:
+                  type: string
+                  description: Senha atual do administrador; necessária para definir role admin ou seller.
+      responses:
+        '200':
+          description: Usuário atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, user]
+                properties:
+                  message:
+                    type: string
+                    example: Usuário atualizado com sucesso.
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      email:
+                        type: string
+                        format: email
+                      role:
+                        type: string
+                        enum: [user, seller, admin, blocked]
+                      name:
+                        type: string
+        '400':
+          description: Nenhuma alteração enviada ou role inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Token inválido/expirado ou senha do administrador inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Token não fornecido ou perfil sem permissão de administrador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: E-mail já cadastrado para outro usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Informe o token JWT retornado por `/login`.
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: ID do recurso no MongoDB.
+      schema:
+        type: string
+      example: 65f1a2b3c4d5e6f789012345
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Dados inválidos.
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Operação realizada com sucesso.
+    AuthenticatedUser:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [user, seller, admin]
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [user, seller, admin, blocked]
+        storeName:
+          type: string
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 1000
+        category:
+          type: string
+          maxLength: 60
+        price:
+          type: number
+          minimum: 0
+        stock:
+          type: integer
+          minimum: 0
+        image:
+          type: string
+        sellerId:
+          description: Nas respostas públicas, pode conter dados públicos do lojista.
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                storeName:
+                  type: string
+                name:
+                  type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OrderStatus:
+      type: string
+      enum: [pending, paid, shipped, delivered, cancelled]
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          type: number
+          minimum: 0
+        sellerId:
+          type: string
+    Order:
+      type: object
+      properties:
+        _id:
+          type: string
+        customerId:
+          description: Pode ser objeto populado nas respostas do lojista.
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          type: number
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        shippingAddress:
+          type: string
+          maxLength: 300
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
