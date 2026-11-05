@@ -130,10 +130,25 @@ const PROTECTED_USER_EMAILS = [
     'user@system.com',
     'blocked@system.com',
     'slow@system.com',
-    'lojista@system.com'
+    'lojista@system.com',
+    'lojistagamer@system.com',
+    'lojistadesign@system.com'
 ];
 
 const PROTECTED_PRODUCT_NAMES = [
+    'Teclado Mecânico Aurora RGB',
+    'Mouse Óptico Atlas Pro 16000 DPI',
+    'Headset Gamer Nexo 7.1 Surround',
+    'Monitor Gamer Curvo UltraWide 29" IPS',
+    'Microfone Condensador USB Podcast Studio',
+    'Webcam StreamCam 1080p 60FPS Full HD',
+    'Cadeira Ergonômica Mesh ErgoTech',
+    'SSD NVMe M.2 1TB Gen4 UltraSpeed',
+    'Mousepad Gamer Speed Extra Grande (90x40cm)',
+    'Suporte Articulado a Gás para 2 Monitores',
+    'Caixa de Som Soundbar Desktop RGB Bluetooth',
+    'Hub Adaptador USB-C 8 em 1 4K HDMI PD 100W',
+    // Legados para retrocompatibilidade
     'Teclado Mecânico Aurora',
     'Mouse Óptico Atlas',
     'Headset Nexo'
@@ -142,11 +157,13 @@ const PROTECTED_PRODUCT_NAMES = [
 // --- SEED DATABASE COM BCRYPT ---
 async function seedDatabase() {
     const defaultUsers = [
-        { email: "admin@system.com", password: "AdminPassword123", role: "admin", name: "Administrador" },
+        { email: "admin@system.com", password: "AdminPassword123", role: "admin", name: "Administrador Geral" },
         { email: "user@system.com", password: "UserPassword123", role: "user", name: "Usuário Padrão" },
         { email: "blocked@system.com", password: "Blocked123", role: "blocked", name: "Usuário Bloqueado" },
         { email: "slow@system.com", password: "SlowPass123", role: "user", name: "Usuário Lento" },
-        { email: "lojista@system.com", password: "SellerPass123", role: "seller", name: "LojaQA Oficial", storeName: "Vitrine Tech" }
+        { email: "lojista@system.com", password: "SellerPass123", role: "seller", name: "LojaQA Oficial", storeName: "Vitrine Tech" },
+        { email: "lojistagamer@system.com", password: "SellerPass123", role: "seller", name: "Arena Gamer", storeName: "Arena Gamer Store" },
+        { email: "lojistadesign@system.com", password: "SellerPass123", role: "seller", name: "Studio Pro", storeName: "Studio Pro Design" }
     ];
 
     for (const userData of defaultUsers) {
@@ -178,12 +195,132 @@ async function seedDatabase() {
         }
     }
 
-    const seller = await User.findOne({ email: 'lojista@system.com' });
-    if (seller && await Product.countDocuments({ sellerId: seller._id }) === 0) {
+    const seller1 = await User.findOne({ email: 'lojista@system.com' });
+    const seller2 = await User.findOne({ email: 'lojistagamer@system.com' });
+    const seller3 = await User.findOne({ email: 'lojistadesign@system.com' });
+
+    if (seller1 && seller2 && seller3 && await Product.countDocuments() === 0) {
         await Product.insertMany([
-            { name: 'Teclado Mecânico Aurora', description: 'Switches silenciosos e iluminação discreta.', category: 'Periféricos', price: 289.90, stock: 18, sellerId: seller._id },
-            { name: 'Mouse Óptico Atlas', description: 'Sensor preciso para trabalho e jogos.', category: 'Periféricos', price: 119.90, stock: 32, sellerId: seller._id },
-            { name: 'Headset Nexo', description: 'Microfone removível e áudio confortável.', category: 'Áudio', price: 199.90, stock: 12, sellerId: seller._id }
+            {
+                name: 'Teclado Mecânico Aurora RGB',
+                description: 'Switches mecânicos silenciosos, iluminação RGB personalizável por tecla e descanso de pulso magnético.',
+                category: 'Periféricos',
+                price: 289.90,
+                stock: 18,
+                image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller1._id,
+                active: true
+            },
+            {
+                name: 'Mouse Óptico Atlas Pro 16000 DPI',
+                description: 'Sensor óptico PixArt topo de linha, 6 botões programáveis, cabo paracord ultra leve e switches ópticos.',
+                category: 'Periféricos',
+                price: 149.90,
+                stock: 35,
+                image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller1._id,
+                active: true
+            },
+            {
+                name: 'Headset Gamer Nexo 7.1 Surround',
+                description: 'Áudio espacial 7.1 virtual, drivers de neodímio de 53mm, almofadas memory foam e microfone com cancelamento de ruído.',
+                category: 'Áudio',
+                price: 219.90,
+                stock: 14,
+                image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller2._id,
+                active: true
+            },
+            {
+                name: 'Monitor Gamer Curvo UltraWide 29" IPS',
+                description: 'Resolução Full HD 2560x1080, taxa de atualização de 100Hz, 1ms MBR, HDR10 e tecnologia FreeSync.',
+                category: 'Monitores',
+                price: 1399.00,
+                stock: 8,
+                image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller2._id,
+                active: true
+            },
+            {
+                name: 'Microfone Condensador USB Podcast Studio',
+                description: 'Padrão polar cardioide, gravação de alta resolução 192kHz/24bit, botão mudo touch e tripé reforçado.',
+                category: 'Áudio',
+                price: 329.90,
+                stock: 10,
+                image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller3._id,
+                active: true
+            },
+            {
+                name: 'Webcam StreamCam 1080p 60FPS Full HD',
+                description: 'Foco automático veloz, correção de luz inteligente, microfones duplos estéreo e encaixe versátil para monitor.',
+                category: 'Acessórios',
+                price: 399.90,
+                stock: 4,
+                image: 'https://images.unsplash.com/photo-1587826080692-f439cd0b70da?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller3._id,
+                active: true
+            },
+            {
+                name: 'Cadeira Ergonômica Mesh ErgoTech',
+                description: 'Certificação NR17, encosto em tela respirável, apoio lombar 3D com ajuste de altura e reclinação até 135 graus.',
+                category: 'Cadeiras & Ergonomia',
+                price: 899.90,
+                stock: 6,
+                image: 'https://images.unsplash.com/photo-1580481077195-c60682a20bdf?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller1._id,
+                active: true
+            },
+            {
+                name: 'SSD NVMe M.2 1TB Gen4 UltraSpeed',
+                description: 'Velocidade de leitura de até 7000MB/s e gravação de até 6000MB/s, dissipador térmico em alumínio integrado.',
+                category: 'Hardware & Armazenamento',
+                price: 449.90,
+                stock: 20,
+                image: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller2._id,
+                active: true
+            },
+            {
+                name: 'Mousepad Gamer Speed Extra Grande (90x40cm)',
+                description: 'Superfície de tecido micro trançado otimizada para sensores laser e ópticos, bordas costuradas e base antiderrapante.',
+                category: 'Acessórios',
+                price: 79.90,
+                stock: 50,
+                image: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller1._id,
+                active: true
+            },
+            {
+                name: 'Suporte Articulado a Gás para 2 Monitores',
+                description: 'Pistão a gás para regulagem suave de altura e rotação 360°, padrão VESA 75/100, suporta até 9kg por braço.',
+                category: 'Cadeiras & Ergonomia',
+                price: 269.90,
+                stock: 0,
+                image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller3._id,
+                active: true
+            },
+            {
+                name: 'Caixa de Som Soundbar Desktop RGB Bluetooth',
+                description: 'Potência de 20W RMS com graves aprimorados por radiadores passivos, conexão USB/P2 e Bluetooth 5.3.',
+                category: 'Áudio',
+                price: 169.90,
+                stock: 15,
+                image: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller2._id,
+                active: true
+            },
+            {
+                name: 'Hub Adaptador USB-C 8 em 1 4K HDMI PD 100W',
+                description: 'Corpo em liga de alumínio, saída HDMI 4K@60Hz, porta Ethernet Gigabit RJ45, 3 portas USB 3.0 e leitor SD/TF.',
+                category: 'Acessórios',
+                price: 189.90,
+                stock: 22,
+                image: 'https://images.unsplash.com/photo-1625842268584-8f3296236761?auto=format&fit=crop&w=600&q=80',
+                sellerId: seller3._id,
+                active: true
+            }
         ]);
     }
 }

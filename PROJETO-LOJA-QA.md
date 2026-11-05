@@ -47,13 +47,32 @@
 
 ### 👤 Usuários de Teste
 
-| Perfil | E-mail | Senha | Objetivo do Teste |
-|---|---|---|---|
-| **Admin** | `admin@system.com` | `AdminPassword123` | Moderação global, alteração de perfis e auditoria |
-| **Cliente** | `user@system.com` | `UserPassword123` | Fluxo de compra, carrinho, checkout e histórico |
-| **Lojista** | `lojista@system.com` | `SellerPass123` | Gestão de estoque e catálogo da própria loja |
-| **Bloqueado** | `blocked@system.com` | `Blocked123` | Validação de bloqueio de acesso e mensagens de segurança |
-| **Lento** | `slow@system.com` | `SlowPass123` | Teste de latência artificial (3s), feedback visual e carga |
+| Perfil | Loja / Identificação | E-mail | Senha | Objetivo do Teste |
+|---|---|---|---|---|
+| **Admin** | Painel Geral | `admin@system.com` | `AdminPassword123` | Moderação global, alteração de perfis e auditoria de produtos |
+| **Cliente** | Consumidor | `user@system.com` | `UserPassword123` | Fluxo de compra, carrinho, checkout e histórico |
+| **Lojista 1** | Vitrine Tech | `lojista@system.com` | `SellerPass123` | Gestão de estoque/catálogo: Periféricos, Cadeiras & Acessórios |
+| **Lojista 2** | Arena Gamer Store | `lojistagamer@system.com` | `SellerPass123` | Gestão de estoque/catálogo: Monitores, Áudio Gamer & SSD |
+| **Lojista 3** | Studio Pro Design | `lojistadesign@system.com` | `SellerPass123` | Gestão de estoque/catálogo: Microfones, Webcams & Ergonomia |
+| **Bloqueado** | Usuário Inativo | `blocked@system.com` | `Blocked123` | Validação de bloqueio de acesso e mensagens de segurança |
+| **Lento** | Usuário Simulação | `slow@system.com` | `SlowPass123` | Teste de latência artificial (3s), feedback visual e carga |
+
+### 📦 Catálogo Oficial de Produtos (12 Itens em 6 Categorias)
+
+| # | Produto | Categoria | Preço | Estoque | Lojista Parceiro | Cenário Especial QA |
+|---|---|---|---|---|---|---|
+| 01 | **Teclado Mecânico Aurora RGB** | Periféricos | R$ 289,90 | 18 un | Vitrine Tech | Produto popular, valor intermediário |
+| 02 | **Mouse Óptico Atlas Pro 16000 DPI** | Periféricos | R$ 149,90 | 35 un | Vitrine Tech | Alto volume de estoque |
+| 03 | **Headset Gamer Nexo 7.1 Surround** | Áudio | R$ 219,90 | 14 un | Arena Gamer Store | Categoria Áudio Gamer |
+| 04 | **Monitor Gamer Curvo UltraWide 29" IPS** | Monitores | R$ 1.399,00 | 8 un | Arena Gamer Store | Ticket alto, frete e cupons |
+| 05 | **Microfone Condensador USB Podcast Studio** | Áudio | R$ 329,90 | 10 un | Studio Pro Design | Equipamento para streaming/gravação |
+| 06 | **Webcam StreamCam 1080p 60FPS Full HD** | Acessórios | R$ 399,90 | 4 un | Studio Pro Design | **Estoque baixo** (badge de alerta) |
+| 07 | **Cadeira Ergonômica Mesh ErgoTech** | Cadeiras & Ergonomia | R$ 899,90 | 6 un | Vitrine Tech | Ticket médio/alto, conformidade NR17 |
+| 08 | **SSD NVMe M.2 1TB Gen4 UltraSpeed** | Hardware & Armazenamento | R$ 449,90 | 20 un | Arena Gamer Store | Categoria Hardware |
+| 09 | **Mousepad Gamer Speed Extra Grande (90x40cm)** | Acessórios | R$ 79,90 | 50 un | Vitrine Tech | Menor valor unitário do catálogo |
+| 10 | **Suporte Articulado a Gás para 2 Monitores** | Cadeiras & Ergonomia | R$ 269,90 | **0 un** | Studio Pro Design | **Esgotado proposital** (validação de botão disabled e badge vermelho) |
+| 11 | **Caixa de Som Soundbar Desktop RGB Bluetooth** | Áudio | R$ 169,90 | 15 un | Arena Gamer Store | Categoria Áudio / Som |
+| 12 | **Hub Adaptador USB-C 8 em 1 4K HDMI PD 100W** | Acessórios | R$ 189,90 | 22 un | Studio Pro Design | Periférico universal |
 
 ### 🎟️ Cupons de Teste
 
