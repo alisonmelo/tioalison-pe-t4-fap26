@@ -1,0 +1,1310 @@
+openapi: 3.0.3
+info:
+  title: LojaQA API - Especificação Oficial & Contrato OpenAPI
+  version: 3.0.0
+  description: |
+    ### 📚 Ambiente Pedagógico de Qualidade e Testes de Software
+    **Programa FAP 2026 - Turma 4 | Teste de Software**  
+    **Orientador:** Prof. Alison Melo  
+    **Plataforma:** LojaQA E-commerce Marketplace
+
+    ---
+
+    ### ⚠️ AVISO CRÍTICO DE ARQUITETURA & SEGURANÇA SOBRE OS MÉTODOS `DELETE`
+    > **FINALIDADE EXCLUSIVAMENTE PEDAGÓGICA (LABORATÓRIO DE TESTES DE QA / PLAYWRIGHT):**
+    > 
+    > 1. **Por que o método `DELETE` físico está ativo nesta API?**  
+    >    Ele foi disponibilizado com a finalidade de capacitar os alunos em automação de testes de API com **Playwright, Postman e Cypress**. Em boas práticas de automação, os testes devem ser independentes e idempotentes, executando o padrão de **Teardown** (o teste cria a massa com `POST`, valida e ao final faz a limpeza com `DELETE` para não sobrecarregar o banco).
+    >
+    > 2. **Por que em sistemas de produção reais o `DELETE` físico quase nunca é exposto?**  
+    >    Em sistemas corporativos e plataformas reais de e-commerce, **Hard Delete (exclusão física) é considerado uma má prática grave de segurança e governança de dados**, pois:
+    >    - **Quebra de Integridade Referencial:** Excluir produtos ou clientes gera registros órfãos em pedidos fiscais antigos (`Order`), quebrando relatórios contábeis, notas fiscais e telas de faturamento;
+    >    - **Riscos de Exclusão Indevida / Golpes:** Deixar rotas de `DELETE` ativas expõe o negócio a deleções acidentais ou sabotagem interna (funcionários ou clientes apagando dados corporativos essenciais);
+    >    - **Auditoria & LGPD/GDPR:** Sistemas reais adotam **Soft Delete** (exclusão lógica: `active: false` ou `role: 'blocked'`), permitindo inativar registros sem apagar o histórico de auditoria.
+    >
+    > 3. **Travas Anti-Caos Pedagógicas Implementadas no Backend:**  
+    >    Para viabilizar que toda a turma teste com segurança sem que um aluno quebre o ambiente dos demais, o backend rejeita tentativas de excluir registros fundamentais do sistema (Seed) com **`403 Forbidden`** e rejeita exclusão de dados com pedidos com **`409 Conflict`**.
+
+servers:
+  - url: https://api-qa-fap2026.onrender.com/api
+    description: Servidor Oficial em Nuvem (Render)
+  - url: http://localhost:3000/api
+    description: Servidor Local de Desenvolvimento
+
+tags:
+  - name: Saúde & Monitoramento
+    description: Verificação de status do servidor da API
+  - name: Autenticação & Acesso
+    description: Endpoints públicos de login, registro e redefinição de credenciais
+  - name: Catálogo & Vitrine
+    description: Consulta pública de produtos e categorias
+  - name: Pedidos (Cliente)
+    description: Endpoints autenticados para realização de compras e acompanhamento
+  - name: Gestão do Lojista (Seller)
+    description: Gerenciamento do catálogo próprio da loja e status de pedidos
+  - name: Gestão Administrativa (Admin)
+    description: Gestão global de usuários e auditoria da plataforma
+
+paths:
+  /health:
+    get:
+      tags:
+        - Saúde & Monitoramento
+      summary: Health Check da API
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        Retorna as informações básicas e o status operacional da API.
+      responses:
+        '200':
+          description: Serviço operando normalmente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service:
+                    type: string
+                    example: lojaqa-api
+                  version:
+                    type: string
+                    example: "2.0"
+                  status:
+                    type: string
+                    example: ok
+
+  /login:
+    post:
+      tags:
+        - Autenticação & Acesso
+      summary: Autenticação de usuário (Login)
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        **Rate Limit:** Máximo de 5 tentativas por IP a cada 15 minutos.  
+        Autentica credenciais e retorna o Token JWT com os dados do perfil.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@system.com
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                  example: UserPassword123
+      responses:
+        '200':
+          description: Login realizado com sucesso. Retorna o Token JWT.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Autenticado com sucesso
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                        example: user@system.com
+                      name:
+                        type: string
+                        example: Usuário Padrão
+                      role:
+                        type: string
+                        enum: [user, seller, admin, blocked]
+                        example: user
+        '400':
+          description: Erro de validação dos campos obrigatórios.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                camposObrigatorios:
+                  value: { error: "Usuário e senha são obrigatórios." }
+                emailInvalido:
+                  value: { error: "E-mail inválido." }
+                tamanhoSenha:
+                  value: { error: "Senha deve ter entre 8 e 25 caracteres." }
+        '401':
+          description: Credenciais incorretas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Credenciais inválidas.
+        '403':
+          description: Usuário com perfil suspenso pelo administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Usuário bloqueado.
+        '404':
+          description: E-mail não localizado na base de dados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Erro: usuário não encontrado."
+        '429':
+          description: Limite de tentativas consecutivas excedido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Muitas tentativas de login. Tente novamente em 15 minutos.
+
+  /register:
+    post:
+      tags:
+        - Autenticação & Acesso
+      summary: Cadastro de novo usuário
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        Registra uma nova conta no sistema (perfil `user` para clientes ou `seller` para lojistas).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                  example: Nome do Aluno QA
+                email:
+                  type: string
+                  format: email
+                  example: novoaluno@system.com
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                  example: SenhaSegura123
+                role:
+                  type: string
+                  enum: [user, seller]
+                  default: user
+                  example: user
+                storeName:
+                  type: string
+                  maxLength: 80
+                  description: Obrigatório caso role seja 'seller'.
+                  example: Loja do Aluno
+      responses:
+        '201':
+          description: Usuário cadastrado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Usuário cadastrado com sucesso!
+        '400':
+          description: Violação de validações de entrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                camposObrigatorios:
+                  value: { error: "Todos os campos são obrigatórios." }
+                nomeLongo:
+                  value: { error: "O nome não pode ter mais de 50 caracteres." }
+                emailInvalido:
+                  value: { error: "E-mail inválido." }
+                perfilInvalido:
+                  value: { error: "Perfil de cadastro inválido." }
+                lojaObrigatoria:
+                  value: { error: "Lojistas precisam informar uma loja de até 80 caracteres." }
+                senhaTamanho:
+                  value: { error: "A senha deve conter entre 8 e 25 caracteres." }
+        '409':
+          description: E-mail já utilizado por outro usuário.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Já existe um usuário cadastrado com este e-mail.
+
+  /forgot-password:
+    post:
+      tags:
+        - Autenticação & Acesso
+      summary: Solicitação de recuperação de senha
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        **Rate Limit:** Máximo de 3 solicitações por IP a cada 1 hora.  
+        Gera token de recuperação e despacha e-mail via SMTP (Mailtrap). Resposta genérica para não revelar existência de contas.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@system.com
+      responses:
+        '200':
+          description: Resposta genérica segura.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Se o e-mail existir em nossa base, um link de recuperação será enviado.
+        '400':
+          description: E-mail em branco ou em formato incorreto.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emailObrigatorio:
+                  value: { error: "O e-mail é obrigatório." }
+                emailInvalido:
+                  value: { error: "E-mail inválido." }
+        '429':
+          description: Rate limit atingido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Muitas solicitações de recuperação de senha. Tente novamente em 1 hora.
+
+  /reset-password:
+    post:
+      tags:
+        - Autenticação & Acesso
+      summary: Conclusão de redefinição de senha
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        Valida o token temporário recebido por e-mail e aplica a nova senha.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - token
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@system.com
+                token:
+                  type: string
+                  example: a1b2c3d4e5f6...
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 25
+                  example: NovaSenhaSegura123
+      responses:
+        '200':
+          description: Senha alterada com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Senha redefinida com sucesso.
+        '400':
+          description: Dados incorretos, senha fora das regras ou token inválido/expirado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                camposFaltando:
+                  value: { error: "E-mail, token e nova senha são obrigatórios." }
+                emailInvalido:
+                  value: { error: "E-mail inválido." }
+                tamanhoSenha:
+                  value: { error: "A senha deve conter entre 8 e 25 caracteres." }
+                tokenExpirado:
+                  value: { error: "Token inválido ou expirado." }
+
+  /products:
+    get:
+      tags:
+        - Catálogo & Vitrine
+      summary: Listagem pública de produtos da vitrine
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        Retorna apenas os produtos ativos (`active: true`) com suporte a filtros combinados por query params.
+      parameters:
+        - name: search
+          in: query
+          description: Busca textual parcial em nome, descrição ou categoria (ou ID exato).
+          schema:
+            type: string
+          example: Teclado
+        - name: category
+          in: query
+          description: Filtro exato por categoria.
+          schema:
+            type: string
+          example: Periféricos
+        - name: sellerId
+          in: query
+          description: Filtra produtos de um lojista específico (ObjectId).
+          schema:
+            type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        - name: minPrice
+          in: query
+          description: Preço mínimo do produto.
+          schema:
+            type: number
+          example: 50
+        - name: maxPrice
+          in: query
+          description: Preço máximo do produto.
+          schema:
+            type: number
+          example: 300
+      responses:
+        '200':
+          description: Lista de produtos ativos cadastrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  /products/categories:
+    get:
+      tags:
+        - Catálogo & Vitrine
+      summary: Listagem de categorias existentes
+      description: |
+        **Autenticação:** Não requer token (Público).  
+        Retorna a lista de categorias únicas dos produtos atualmente ativos.
+      responses:
+        '200':
+          description: Array de nomes de categorias.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+              example: ["Periféricos", "Áudio", "Monitores", "Acessórios"]
+
+  /orders:
+    post:
+      tags:
+        - Pedidos (Cliente)
+      summary: Criação de pedido de compra (Checkout)
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `user`, `seller` ou `admin` (qualquer usuário logado ativo).  
+        Cria o pedido, decrementa o estoque atômico dos produtos e grava o endereço.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - shippingAddress
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - productId
+                      - quantity
+                    properties:
+                      productId:
+                        type: string
+                        example: 64f1a2b3c4d5e6f7a8b9c0d1
+                      quantity:
+                        type: integer
+                        minimum: 1
+                        example: 2
+                shippingAddress:
+                  type: string
+                  maxLength: 300
+                  example: "Av. Paulista, 1000 - Bela Vista, São Paulo/SP (CEP: 01310-100)"
+      responses:
+        '201':
+          description: Pedido criado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Pedido criado com sucesso.
+                  order:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: Itens em branco, endereço ausente ou quantidade inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                itensObrigatorios:
+                  value: { error: "Itens e endereço de entrega são obrigatórios." }
+                produtoInvalido:
+                  value: { error: "Produto ou quantidade inválida." }
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenTokenError'
+        '409':
+          description: Estoque insuficiente para atender a quantidade solicitada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Estoque insuficiente para Teclado Mecânico Aurora.
+
+  /orders/me:
+    get:
+      tags:
+        - Pedidos (Cliente)
+      summary: Histórico de pedidos do usuário autenticado
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `user`, `seller`, `admin`.  
+        Retorna a lista de compras realizadas exclusivamente pela conta conectada.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista dos pedidos do próprio cliente ordenados pelos mais recentes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenTokenError'
+
+  /seller/products:
+    get:
+      tags:
+        - Gestão do Lojista (Seller)
+      summary: Listar produtos da loja autenticada (Multi-Tenancy)
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `seller` ou `admin`.  
+        Se for lojista (`seller`), retorna apenas os produtos da sua própria loja. Se for `admin`, lista todos os produtos.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array de produtos pertencentes à loja.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Perfil sem autorização de lojista.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Acesso exclusivo para lojistas.
+
+    post:
+      tags:
+        - Gestão do Lojista (Seller)
+      summary: Cadastrar novo produto na loja
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `seller` ou `admin`.  
+        Cadastra um novo produto vinculado automaticamente à loja do lojista logado.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category
+                - price
+                - stock
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                  example: Mouse Gamer RGB 16000 DPI
+                description:
+                  type: string
+                  maxLength: 1000
+                  example: Sensor óptico de alta precisão com switches mecânicos.
+                category:
+                  type: string
+                  maxLength: 60
+                  example: Periféricos
+                price:
+                  type: number
+                  minimum: 0
+                  example: 189.90
+                stock:
+                  type: integer
+                  minimum: 0
+                  example: 25
+                image:
+                  type: string
+                  example: https://exemplo.com/mouse.jpg
+                sellerId:
+                  type: string
+                  description: Obrigatório apenas se o cadastro estiver sendo realizado pelo Admin em nome de uma loja.
+                  example: 64f1a2b3c4d5e6f7a8b9c0d1
+      responses:
+        '201':
+          description: Produto cadastrado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Produto criado com sucesso.
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '400':
+          description: Falta de dados obrigatórios ou tipos inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                camposObrigatorios:
+                  value: { error: "Nome, categoria, preço e estoque válidos são obrigatórios." }
+                adminSemLoja:
+                  value: { error: "O administrador deve informar a loja proprietária do produto." }
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Acesso exclusivo de lojistas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Acesso exclusivo para lojistas.
+
+  /seller/products/{id}:
+    put:
+      tags:
+        - Gestão do Lojista (Seller)
+      summary: Atualizar dados de produto ou desativar (Soft Delete)
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `seller` (dono do produto) ou `admin`.  
+        Atualiza campos específicos de um produto.  
+        💡 **Prática Recomendada de Produção (Soft Delete):** Para retirar um produto de circulação sem quebrar relatórios nem pedidos antigos, envie `"active": false`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único do produto (ObjectId).
+          schema:
+            type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                category:
+                  type: string
+                price:
+                  type: number
+                stock:
+                  type: integer
+                image:
+                  type: string
+                active:
+                  type: boolean
+                  description: Define visibilidade pública na vitrine (Soft Delete se false).
+                  example: true
+      responses:
+        '200':
+          description: Produto atualizado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Produto atualizado com sucesso.
+                  product:
+                    $ref: '#/components/schemas/Product'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Tentativa de editar produto de terceiros.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Acesso exclusivo para lojistas.
+        '404':
+          description: Produto não encontrado ou não pertence a esta loja.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Produto não encontrado ou sem permissão.
+
+    delete:
+      tags:
+        - Gestão do Lojista (Seller)
+      summary: Excluir produto fisicamente (Hard Delete Pedagógico)
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `seller` (dono do produto) ou `admin`.  
+
+        ---
+        ### ⚠️ AVISO DE RISCO & CONTEXTO PEDAGÓGICO DE QA
+        * **Finalidade no Curso:** Habilitado para permitir testes de automação com **Playwright / Postman** no ciclo completo de CRUD e rotinas de **Teardown** (limpeza de massa de dados após a execução do teste).
+        * **Realidade de Mercado:** Em produção real, este método costuma ficar rigorosamente **desativado**. Utiliza-se **Soft Delete** (`active: false`) via `PUT`, pois apagar produtos fisicamente causa quebra de integridade referencial com pedidos fiscais passados.
+        * **Travas de Segurança Aplicadas:**
+          1. 🔒 **Proteção de Seed:** Rejeita exclusão de produtos base oficiais da turma (`Teclado Mecânico Aurora`, `Mouse Óptico Atlas`, `Headset Nexo`) retornando `403 Forbidden`;
+          2. 🔒 **Integridade Referencial:** Rejeita exclusão se houver qualquer pedido com o produto no banco retornando `409 Conflict`;
+          3. 🔒 **Multi-Tenancy:** Lojista só pode deletar itens da sua própria loja (`403 Forbidden`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único do produto (ObjectId).
+          schema:
+            type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+      responses:
+        '200':
+          description: Produto excluído fisicamente com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Produto excluído com sucesso.
+                  id:
+                    type: string
+                    example: 64f1a2b3c4d5e6f7a8b9c0d1
+        '400':
+          description: ID fornecido não é um ObjectId válido do MongoDB.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: ID de produto inválido.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Tentativa de excluir produto padrão do sistema ou de outra loja.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                produtoPadrao:
+                  value: { error: "Proibido: produtos padrão do catálogo oficial não podem ser excluídos." }
+                lojaInvalida:
+                  value: { error: "Acesso negado: você só pode excluir produtos pertencentes à sua loja." }
+        '404':
+          description: Produto não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Produto não encontrado.
+        '409':
+          description: Bloqueio de integridade referencial por existência de histórico de pedidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Conflito de integridade: este produto possui pedidos vinculados ao histórico de vendas. Utilize a desativação lógica (active: false)."
+
+  /seller/orders:
+    get:
+      tags:
+        - Gestão do Lojista (Seller)
+      summary: Listar pedidos contendo produtos da loja autenticada
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `seller` ou `admin`.  
+        Retorna todos os pedidos de clientes que incluem itens comercializados pela loja conectada.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Array de pedidos da loja com dados populados do cliente comprador.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Acesso exclusivo para lojistas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Acesso exclusivo para lojistas.
+
+  /seller/orders/{id}/status:
+    put:
+      tags:
+        - Gestão do Lojista (Seller)
+      summary: Atualizar o status de entrega do pedido
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Permitido:** `seller` ou `admin`.  
+        Atualiza o ciclo de vida e rastreamento do pedido.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID do pedido (ObjectId).
+          schema:
+            type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, paid, shipped, delivered, cancelled]
+                  example: shipped
+      responses:
+        '200':
+          description: Status atualizado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Status atualizado.
+                  order:
+                    $ref: '#/components/schemas/Order'
+        '400':
+          description: Status informado não pertence à lista de valores aceitos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Status de pedido inválido.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenRoleError'
+        '404':
+          description: Pedido inexistente ou não pertencente a esta loja.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Pedido não encontrado ou sem permissão.
+
+  /users:
+    get:
+      tags:
+        - Gestão Administrativa (Admin)
+      summary: Listar todos os usuários da plataforma
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Exclusivo:** `admin`.  
+        Retorna a lista completa de contas cadastradas (ocultando a senha criptografada).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de todos os usuários.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Acesso negado para perfis não administrativos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Acesso negado.
+
+  /users/{id}:
+    put:
+      tags:
+        - Gestão Administrativa (Admin)
+      summary: Atualizar dados de usuário ou bloquear acesso (Soft Delete)
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Exclusivo:** `admin`.  
+        Permite alterar e-mail, nome, loja, senha ou perfil (`role`).  
+        💡 **Prática Recomendada de Produção (Suspensão de Conta):** Para desativar um usuário mantendo o histórico legal de compras, altere seu perfil para `role: "blocked"`.  
+        ⚠️ Caso a alteração promova para `admin` ou `seller`, exige o envio da senha administrativa (`adminPassword`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID do usuário (ObjectId).
+          schema:
+            type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                storeName:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [user, seller, admin, blocked]
+                adminPassword:
+                  type: string
+                  description: Senha do administrador atual para autorizar alterações críticas de privilégios.
+                  example: AdminPassword123
+      responses:
+        '200':
+          description: Usuário atualizado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Usuário atualizado com sucesso.
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+                      name:
+                        type: string
+        '400':
+          description: Nenhuma alteração enviada ou role inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                semAlteracao:
+                  value: { error: "Nenhuma alteração enviada." }
+                roleInvalida:
+                  value: { error: "Role inválida. Use user, admin ou blocked." }
+        '401':
+          description: Senha do administrador incorreta para a operação solicitada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Senha do administrador inválida para alterar este perfil.
+        '403':
+          $ref: '#/components/responses/ForbiddenRoleError'
+        '404':
+          description: Usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Usuário não encontrado.
+        '409':
+          description: E-mail informado já está em uso por outra conta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Já existe um usuário cadastrado com este e-mail.
+
+    delete:
+      tags:
+        - Gestão Administrativa (Admin)
+      summary: Excluir usuário fisicamente (Hard Delete Pedagógico)
+      description: |
+        **Autenticação OBRIGATÓRIA:** Header `Authorization: Bearer <token_jwt>`.  
+        **Perfil Exclusivo:** `admin`.  
+        **Autorização Adicional de Segurança:** Exige a senha do administrador via Body (`adminPassword`), Header (`x-admin-password: AdminPassword123`) ou Query (`?adminPassword=AdminPassword123`).
+
+        ---
+        ### ⚠️ AVISO DE RISCO & CONTEXTO PEDAGÓGICO DE QA
+        * **Finalidade no Curso:** Permite aos alunos testarem automações de API com Playwright no fluxo de cadastro, limpando a massa de usuários temporários criados nos testes (**Teardown**).
+        * **Realidade de Mercado:** Em produção corporativa, contas de usuários quase **NUNCA** são deletadas fisicamente devido a regulamentações como LGPD/GDPR, rastreamento contábil e contratos fiscais. O caminho padrão é a suspensão lógica via `role: "blocked"`.
+        * **Travas de Segurança Aplicadas:**
+          1. 🔒 **Anti-Caos (Seed da Turma):** Bloqueia a exclusão dos usuários essenciais (`admin@system.com`, `user@system.com`, `lojista@system.com`, `blocked@system.com`, `slow@system.com`) retornando `403 Forbidden`;
+          2. 🔒 **Anti-Auto-Exclusão:** O administrador não pode excluir sua própria conta conectada (`400 Bad Request`);
+          3. 🔒 **Integridade Referencial:** Rejeita exclusão se o usuário tiver histórico de pedidos de compra ou produtos cadastrados na loja (`409 Conflict`);
+          4. 🔒 **Senha Mestra:** Exige a senha do admin para evitar disparos acidentais (`401 Unauthorized`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador do usuário (ObjectId).
+          schema:
+            type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        - name: x-admin-password
+          in: header
+          required: false
+          description: Senha do administrador enviada via Header (alternativa para clientes HTTP como Playwright).
+          schema:
+            type: string
+          example: AdminPassword123
+        - name: adminPassword
+          in: query
+          required: false
+          description: Senha do administrador enviada via Query Parameter (alternativa flexível).
+          schema:
+            type: string
+          example: AdminPassword123
+      requestBody:
+        required: false
+        description: Corpo opcional contendo a senha administrativa.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                adminPassword:
+                  type: string
+                  example: AdminPassword123
+      responses:
+        '200':
+          description: Usuário excluído fisicamente com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Usuário excluído com sucesso.
+                  id:
+                    type: string
+                    example: 64f1a2b3c4d5e6f7a8b9c0d1
+        '400':
+          description: ID inválido ou tentativa do administrador de excluir a si mesmo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                idInvalido:
+                  value: { error: "ID de usuário inválido." }
+                autoExclusao:
+                  value: { error: "O administrador não pode excluir a sua própria conta ativa." }
+        '401':
+          description: Senha administrativa incorreta ou não fornecida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Senha administrativa incorreta ou não fornecida para autorizar a exclusão.
+        '403':
+          description: Tentativa de excluir usuários fundamentais do sistema da turma.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Proibido: usuários padrão do sistema não podem ser excluídos."
+        '404':
+          description: Usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: Usuário não encontrado.
+        '409':
+          description: Conflito de integridade por histórico de pedidos ou produtos vinculados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Conflito de integridade: este usuário possui pedidos ou produtos vinculados ao histórico. Utilize a suspensão de acesso (role: 'blocked')."
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Envie o token JWT retornado no login com o prefixo `Bearer `:  
+        `Authorization: Bearer <seu_token_jwt>`
+
+  responses:
+    UnauthorizedError:
+      description: Token JWT ausente, inválido ou expirado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Token inválido ou expirado.
+
+    ForbiddenTokenError:
+      description: Token não fornecido no cabeçalho Authorization.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Token não fornecido.
+
+    ForbiddenRoleError:
+      description: Usuário autenticado não tem permissão para a rota.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Acesso negado.
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Descrição da falha controlada retornada pela API.
+          example: Mensagem detalhada de erro
+
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        name:
+          type: string
+          example: Usuário Padrão
+        email:
+          type: string
+          example: user@system.com
+        role:
+          type: string
+          enum: [user, seller, admin, blocked]
+          example: user
+        storeName:
+          type: string
+          example: Vitrine Tech
+
+    Product:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        name:
+          type: string
+          example: Teclado Mecânico Aurora
+        description:
+          type: string
+          example: Switches silenciosos e iluminação discreta.
+        category:
+          type: string
+          example: Periféricos
+        price:
+          type: number
+          example: 289.90
+        stock:
+          type: integer
+          example: 18
+        image:
+          type: string
+          example: https://exemplo.com/teclado.jpg
+        active:
+          type: boolean
+          example: true
+        sellerId:
+          type: object
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+            storeName:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        name:
+          type: string
+          example: Teclado Mecânico Aurora
+        quantity:
+          type: integer
+          example: 2
+        unitPrice:
+          type: number
+          example: 289.90
+        sellerId:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d9
+
+    Order:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d2
+        customerId:
+          type: string
+          example: 64f1a2b3c4d5e6f7a8b9c0d1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          type: number
+          example: 579.80
+        status:
+          type: string
+          enum: [pending, paid, shipped, delivered, cancelled]
+          example: pending
+        shippingAddress:
+          type: string
+          example: "Av. Paulista, 1000 - Bela Vista, São Paulo/SP (CEP: 01310-100)"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+

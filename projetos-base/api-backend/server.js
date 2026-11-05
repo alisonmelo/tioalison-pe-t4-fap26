@@ -124,6 +124,21 @@ const Order = mongoose.model('Order', OrderSchema);
 
 const VALID_ROLES = ['user', 'seller', 'admin', 'blocked'];
 
+// --- PROTEÇÕES DO AMBIENTE PEDAGÓGICO DE TESTES (TRAVAS CONTRA EXCLUSÃO DE MASSA VITAL) ---
+const PROTECTED_USER_EMAILS = [
+    'admin@system.com',
+    'user@system.com',
+    'blocked@system.com',
+    'slow@system.com',
+    'lojista@system.com'
+];
+
+const PROTECTED_PRODUCT_NAMES = [
+    'Teclado Mecânico Aurora',
+    'Mouse Óptico Atlas',
+    'Headset Nexo'
+];
+
 // --- SEED DATABASE COM BCRYPT ---
 async function seedDatabase() {
     const defaultUsers = [
@@ -527,6 +542,48 @@ app.put('/api/seller/products/:id', verifyToken, isSeller, async (req, res, next
     }
 });
 
+// EXCLUIR PRODUTO (Exclusão física com travas de segurança pedagógicas e integridade referencial)
+app.delete('/api/seller/products/:id', verifyToken, isSeller, async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "ID de produto inválido." });
+        }
+
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({ error: "Produto não encontrado." });
+        }
+
+        // Permissão RBAC: Admin pode excluir qualquer produto; Lojista apenas produtos da sua própria loja
+        if (req.user.role !== 'admin' && product.sellerId.toString() !== req.user.id) {
+            return res.status(403).json({ error: "Acesso negado: você só pode excluir produtos pertencentes à sua loja." });
+        }
+
+        // Trava 1 (Massa Seed): Impede exclusão dos produtos base do catálogo oficial
+        if (PROTECTED_PRODUCT_NAMES.includes(product.name)) {
+            return res.status(403).json({ error: "Proibido: produtos padrão do catálogo oficial não podem ser excluídos." });
+        }
+
+        // Trava 2 (Integridade Referencial): Impede exclusão se o produto tiver pedidos associados
+        const hasOrders = await Order.exists({ 'items.productId': product._id });
+        if (hasOrders) {
+            return res.status(409).json({
+                error: "Conflito de integridade: este produto possui pedidos vinculados ao histórico de vendas. Utilize a desativação lógica (active: false)."
+            });
+        }
+
+        await Product.findByIdAndDelete(product._id);
+
+        res.status(200).json({
+            message: "Produto excluído com sucesso.",
+            id: product._id
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 app.get('/api/seller/orders', verifyToken, isSeller, async (req, res, next) => {
     try {
         const filter = req.user.role === 'admin' ? {} : { 'items.sellerId': req.user.id };
@@ -622,6 +679,64 @@ app.put('/api/users/:id', verifyToken, isAdmin, async (req, res, next) => {
         res.status(200).json({
             message: "Usuário atualizado com sucesso.",
             user: { id: updatedUser._id, email: updatedUser.email, role: updatedUser.role, name: updatedUser.name }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// EXCLUIR USUÁRIO (Exclusivo Admin, com travas de segurança e confirmação de senha)
+app.delete('/api/users/:id', verifyToken, isAdmin, async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "ID de usuário inválido." });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ error: "Usuário não encontrado." });
+        }
+
+        // Trava 1: O administrador não pode excluir sua própria conta conectada
+        if (req.user.id === id) {
+            return res.status(400).json({ error: "O administrador não pode excluir a sua própria conta ativa." });
+        }
+
+        // Trava 2 (Massa Seed): Impede a exclusão dos usuários padrão vitais para a turma
+        if (PROTECTED_USER_EMAILS.includes(user.email.toLowerCase())) {
+            return res.status(403).json({ error: "Proibido: usuários padrão do sistema não podem ser excluídos." });
+        }
+
+        // Trava 3: Confirmação de senha administrativa (suporta body, header 'x-admin-password' ou query param para clientes de automação como Playwright)
+        const adminPassword = req.body?.adminPassword || req.headers['x-admin-password'] || req.query?.adminPassword;
+        const adminUser = await User.findById(req.user.id);
+        if (!adminUser) return res.status(401).json({ error: "Administrador não encontrado." });
+
+        const isAdminPwMatch = adminUser.password.startsWith('$2')
+            ? await bcrypt.compare(adminPassword || '', adminUser.password)
+            : adminUser.password === (adminPassword || '');
+
+        if (!isAdminPwMatch) {
+            return res.status(401).json({ error: "Senha administrativa incorreta ou não fornecida para autorizar a exclusão." });
+        }
+
+        // Trava 4 (Integridade Referencial): Impede exclusão se o usuário tiver histórico de compras ou produtos/pedidos vinculados
+        const hasOrders = await Order.exists({ customerId: user._id });
+        const hasProducts = await Product.exists({ sellerId: user._id });
+        const hasSellerOrders = await Order.exists({ 'items.sellerId': user._id });
+
+        if (hasOrders || hasProducts || hasSellerOrders) {
+            return res.status(409).json({
+                error: "Conflito de integridade: este usuário possui pedidos ou produtos vinculados ao histórico. Utilize a suspensão de acesso (role: 'blocked')."
+            });
+        }
+
+        await User.findByIdAndDelete(user._id);
+
+        res.status(200).json({
+            message: "Usuário excluído com sucesso.",
+            id: user._id
         });
     } catch (error) {
         next(error);

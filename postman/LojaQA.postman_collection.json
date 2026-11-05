@@ -1,0 +1,994 @@
+{
+  "info": {
+    "_postman_id": "fap2026-lojaqa-collection-v3",
+    "name": "LojaQA - E-commerce QA API (Turma 4 FAP 2026)",
+    "description": "# 🛍️ LojaQA - Suíte de Testes da API & Roteiro Exploratório\n\n**Programa FAP 2026 - Turma 4 | Teste de Software**  \n**Orientador:** Prof. Alison Melo  \n**Ambiente Base:** Nuvem (`https://api-qa-fap2026.onrender.com/api`) ou Local (`http://localhost:3000/api`)\n\n---\n\n### 🚀 Como Começar:\n1. Selecione o ambiente **LojaQA - Nuvem (Render)** ou **LojaQA - Local** no canto superior direito do Postman;\n2. Execute a requisição `02. Autenticação > 01. Login como Cliente` ou `02. Login como Lojista` ou `03. Login como Admin`;\n3. O script da requisição salvará automaticamente o Token JWT nas variáveis de ambiente (`{{token}}`, `{{tokenAdmin}}`, `{{tokenLojista}}`, `{{tokenCliente}}`);\n4. Todas as rotas autenticadas já utilizam `Bearer {{token}}` automaticamente!\n\n---\n\n### ⚠️ AVISO PEDAGÓGICO SOBRE OS MÉTODOS `DELETE`:\nOs endpoints de exclusão física (*Hard Delete*) estão presentes nesta coleção **estritamente para práticas didáticas de QA**, exercitando o conceito de **Teardown** (limpeza de massa de teste).  \nEm sistemas corporativos reais, rotas de `DELETE` são desabilitadas por segurança para evitar inconsistências e exclusão indevida (utiliza-se *Soft Delete* via `PUT`).\nO backend possui **travas anti-caos** que retornam `403 Forbidden` caso tentem apagar dados do seed (`admin@system.com`, `Teclado Aurora`, etc.) e `409 Conflict` se houver pedidos vinculados.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "01. Monitoramento & Saúde",
+      "item": [
+        {
+          "name": "Health Check da API",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifica se a API está online e retorna a versão atual."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02. Autenticação & Gestão de Acessos",
+      "item": [
+        {
+          "name": "Login como Cliente (user@system.com)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set(\"tokenCliente\", jsonData.token);",
+                  "    pm.environment.set(\"token\", jsonData.token);",
+                  "    console.log(\"Token de Cliente salvo com sucesso!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@system.com\",\n  \"password\": \"UserPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            },
+            "description": "Autentica o cliente padrão e armazena o token na variável `tokenCliente` e `token`."
+          },
+          "response": []
+        },
+        {
+          "name": "Login como Lojista (lojista@system.com)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set(\"tokenLojista\", jsonData.token);",
+                  "    pm.environment.set(\"token\", jsonData.token);",
+                  "    console.log(\"Token de Lojista salvo com sucesso!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lojista@system.com\",\n  \"password\": \"SellerPass123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            },
+            "description": "Autentica o lojista e armazena o token na variável `tokenLojista` e `token`."
+          },
+          "response": []
+        },
+        {
+          "name": "Login como Admin (admin@system.com)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.token) {",
+                  "    pm.environment.set(\"tokenAdmin\", jsonData.token);",
+                  "    pm.environment.set(\"token\", jsonData.token);",
+                  "    console.log(\"Token de Administrador salvo com sucesso!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@system.com\",\n  \"password\": \"AdminPassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["login"]
+            },
+            "description": "Autentica o administrador global e armazena o token na variável `tokenAdmin` e `token`."
+          },
+          "response": []
+        },
+        {
+          "name": "Cadastro de Novo Usuário (Cliente)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aluno QA Automação\",\n  \"email\": \"aluno_{{$timestamp}}@system.com\",\n  \"password\": \"SenhaForte123\",\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            },
+            "description": "Cadastra um cliente com e-mail dinâmico usando a macro {{$timestamp}}."
+          },
+          "response": []
+        },
+        {
+          "name": "Cadastro de Novo Usuário (Lojista)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Lojista Parceiro QA\",\n  \"email\": \"lojista_{{$timestamp}}@system.com\",\n  \"password\": \"SenhaForte123\",\n  \"role\": \"seller\",\n  \"storeName\": \"Tech Store QA\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["register"]
+            },
+            "description": "Cadastra um parceiro lojista fornecendo a razão/nome da loja (storeName)."
+          },
+          "response": []
+        },
+        {
+          "name": "Solicitar Recuperação de Senha",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@system.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["forgot-password"]
+            },
+            "description": "Dispara e-mail de recuperação via SMTP. Possui rate-limit de 3 requisições por hora."
+          },
+          "response": []
+        },
+        {
+          "name": "Concluir Redefinição de Senha",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@system.com\",\n  \"token\": \"token_recebido_no_email\",\n  \"password\": \"NovaSenha123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["reset-password"]
+            },
+            "description": "Aplica nova senha informando o token temporário."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03. Catálogo & Vitrine Pública",
+      "item": [
+        {
+          "name": "Listar Todos os Produtos Ativos",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"]
+            },
+            "description": "Retorna todos os produtos com active: true."
+          },
+          "response": []
+        },
+        {
+          "name": "Busca Textual por Nome ou Descrição",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?search=Teclado",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "search", "value": "Teclado" }
+              ]
+            },
+            "description": "Busca parcial insensível a maiúsculas/minúsculas."
+          },
+          "response": []
+        },
+        {
+          "name": "Filtro por Categoria Exata",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?category=Periféricos",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "category", "value": "Periféricos" }
+              ]
+            },
+            "description": "Filtra produtos da categoria informada."
+          },
+          "response": []
+        },
+        {
+          "name": "Filtro por Faixa de Preço (minPrice e maxPrice)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?minPrice=100&maxPrice=300",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                { "key": "minPrice", "value": "100" },
+                { "key": "maxPrice", "value": "300" }
+              ]
+            },
+            "description": "Filtra produtos com preço entre 100 e 300."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Categorias Disponíveis",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "categories"]
+            },
+            "description": "Lista única das categorias com produtos ativos."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04. Pedidos (Cliente)",
+      "item": [
+        {
+          "name": "Criar Pedido de Compra (Checkout)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "if (data.order && data.order._id) {",
+                  "    pm.environment.set(\"createdOrderId\", data.order._id);",
+                  "    console.log(\"ID do Pedido salvo: \" + data.order._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenCliente}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"{{firstProductId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": \"Av. Paulista, 1000 - Bela Vista, São Paulo/SP (CEP: 01310-100)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Requer autenticação. Decrementa o estoque e cria o pedido."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Meus Pedidos",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenCliente}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "me"]
+            },
+            "description": "Retorna o histórico de pedidos da conta autenticada."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05. Gestão do Lojista (Seller)",
+      "item": [
+        {
+          "name": "Listar Produtos da Minha Loja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var list = pm.response.json();",
+                  "if (Array.isArray(list) && list.length > 0) {",
+                  "    pm.environment.set(\"firstProductId\", list[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "products"]
+            },
+            "description": "Lista produtos vinculados exclusivamente à loja do lojista logado."
+          },
+          "response": []
+        },
+        {
+          "name": "Cadastrar Novo Produto na Loja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var data = pm.response.json();",
+                  "if (data.product && data.product._id) {",
+                  "    pm.environment.set(\"createdProductId\", data.product._id);",
+                  "    console.log(\"Produto criado salvo: \" + data.product._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mouse Gamer Óptico Pro QA {{$timestamp}}\",\n  \"description\": \"Sensor de 16000 DPI com iluminação customizável\",\n  \"category\": \"Periféricos\",\n  \"price\": 189.90,\n  \"stock\": 20,\n  \"image\": \"https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/seller/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "products"]
+            },
+            "description": "Cadastra produto na loja. Salva o ID em `createdProductId`."
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Produto (Editar Dados)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mouse Gamer Óptico Pro QA - Atualizado\",\n  \"price\": 199.90,\n  \"stock\": 25\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{createdProductId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "products", "{{createdProductId}}"]
+            },
+            "description": "Atualiza campos do produto recém criado."
+          },
+          "response": []
+        },
+        {
+          "name": "Soft Delete: Desativar Produto (active: false)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"active\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{createdProductId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "products", "{{createdProductId}}"]
+            },
+            "description": "💡 BOA PRÁTICA DE PRODUÇÃO: Oculta o produto da vitrine sem apagar o histórico de vendas."
+          },
+          "response": []
+        },
+        {
+          "name": "Hard Delete: Excluir Produto (Teardown Pedagógico)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code é 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{createdProductId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "products", "{{createdProductId}}"]
+            },
+            "description": "Exclui fisicamente o produto criado nos testes (Teardown). Se tentar apagar produtos do seed ou com pedidos, a API rejeitará!"
+          },
+          "response": []
+        },
+        {
+          "name": "[Trava Seed] Tentar Excluir Produto Oficial do Catálogo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Bloqueio anti-caos ativado: 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.error).to.include(\"produtos padrão do catálogo oficial não podem ser excluídos\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/products/{{firstProductId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "products", "{{firstProductId}}"]
+            },
+            "description": "Valida a trava que impede alunos de apagarem os produtos base oficiais do sistema."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Pedidos Recebidos pela Loja",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/seller/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "orders"]
+            },
+            "description": "Retorna todos os pedidos que contêm produtos desta loja."
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar Status do Pedido (enviado / entregue)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"shipped\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/seller/orders/{{createdOrderId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["seller", "orders", "{{createdOrderId}}", "status"]
+            },
+            "description": "Atualiza o status para pending, paid, shipped, delivered ou cancelled."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06. Administração (Admin)",
+      "item": [
+        {
+          "name": "Listar Todos os Usuários",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var list = pm.response.json();",
+                  "if (Array.isArray(list) && list.length > 0) {",
+                  "    // Procura um usuário criado não protegido",
+                  "    var temp = list.find(function(u) {",
+                  "        return u.email.indexOf('aluno_') !== -1 || u.email.indexOf('teste') !== -1;",
+                  "    });",
+                  "    if (temp) {",
+                  "        pm.environment.set(\"tempUserId\", temp._id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenAdmin}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Exclusivo admin. Lista todas as contas da base de dados."
+          },
+          "response": []
+        },
+        {
+          "name": "Bloquear Usuário (role: blocked)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenAdmin}}", "type": "string" }]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"blocked\",\n  \"adminPassword\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/{{tempUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{tempUserId}}"]
+            },
+            "description": "💡 BOA PRÁTICA DE PRODUÇÃO: Suspende a conta sem quebrar o histórico contábil de pedidos passados."
+          },
+          "response": []
+        },
+        {
+          "name": "Hard Delete: Excluir Usuário de Teste (com Senha)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Usuário de teste excluído com sucesso (200 OK)\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenAdmin}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [
+              { "key": "x-admin-password", "value": "{{adminPassword}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{tempUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{tempUserId}}"]
+            },
+            "description": "Exclui usuário de teste enviando a senha administrativa no Header x-admin-password (ou via body/query)."
+          },
+          "response": []
+        },
+        {
+          "name": "[Trava Seed] Tentar Excluir Usuário Padrão (user@system.com)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Bloqueio anti-caos ativado: 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.error).to.include(\"usuários padrão do sistema não podem ser excluídos\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenAdmin}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [
+              { "key": "x-admin-password", "value": "{{adminPassword}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{protectedUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "{{protectedUserId}}"]
+            },
+            "description": "Garante que ninguém apague os usuários do seed da turma."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07. Laboratório de Testes Exploratórios & Segurança",
+      "item": [
+        {
+          "name": "[Segurança / Auth] Login com Usuário Bloqueado (blocked@system.com)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Acesso bloqueado: 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "    pm.expect(pm.response.json().error).to.eql(\"Usuário bloqueado.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"blocked@system.com\",\n  \"password\": \"Blocked123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] },
+            "description": "Verifica se usuários com perfil 'blocked' são barrados na autenticação."
+          },
+          "response": []
+        },
+        {
+          "name": "[Concorrência & Carga] Login com Usuário Lento (slow@system.com)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Resposta acima de 1.5s devido ao delay proposital\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.above(1500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"slow@system.com\",\n  \"password\": \"SlowPass123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] },
+            "description": "Simula latência de rede artificial de ~1.8s para testes de UI e loaders."
+          },
+          "response": []
+        },
+        {
+          "name": "[BVA - Senha Curta] Cadastro com 7 caracteres (< 8)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rejeitado por tamanho de senha: 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().error).to.include(\"A senha deve conter entre 8 e 25 caracteres.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Teste Limite Inferior\",\n  \"email\": \"curta_{{$timestamp}}@system.com\",\n  \"password\": \"1234567\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/register", "host": ["{{baseUrl}}"], "path": ["register"] },
+            "description": "Análise de Valor Limite: 7 caracteres deve ser rejeitado."
+          },
+          "response": []
+        },
+        {
+          "name": "[BVA - Senha Longa] Cadastro com 26 caracteres (> 25)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Rejeitado por tamanho de senha: 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().error).to.include(\"A senha deve conter entre 8 e 25 caracteres.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Teste Limite Superior\",\n  \"email\": \"longa_{{$timestamp}}@system.com\",\n  \"password\": \"12345678901234567890123456\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/register", "host": ["{{baseUrl}}"], "path": ["register"] },
+            "description": "Análise de Valor Limite: 26 caracteres deve ser rejeitado."
+          },
+          "response": []
+        },
+        {
+          "name": "[Segurança / NoSQL Injection] Tentativa de Injeção no Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"API não deve vazar dados ou autenticar indevidamente\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 401]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": { \"$gt\": \"\" },\n  \"password\": { \"$gt\": \"\" }\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] },
+            "description": "Teste de segurança para garantir sanitização contra objetos em campos de login."
+          },
+          "response": []
+        },
+        {
+          "name": "[BVA - Negócio] Criar Produto com Preço Negativo (-10)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Preço negativo rejeitado: 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().error).to.include(\"preço e estoque válidos são obrigatórios\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Preço Inválido\",\n  \"category\": \"Áudio\",\n  \"price\": -10,\n  \"stock\": 5\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/seller/products", "host": ["{{baseUrl}}"], "path": ["seller", "products"] },
+            "description": "Preço não pode ser negativo."
+          },
+          "response": []
+        },
+        {
+          "name": "[Entrada Malformada] Deletar Produto com ID que não é ObjectId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"ID inválido rejeitado: 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().error).to.eql(\"ID de produto inválido.\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenLojista}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/seller/products/id_invalido_123", "host": ["{{baseUrl}}"], "path": ["seller", "products", "id_invalido_123"] },
+            "description": "Testa a validação estrutural de ObjectID no Express."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+

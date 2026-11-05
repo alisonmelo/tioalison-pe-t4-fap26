@@ -81,6 +81,20 @@ A evolução do e-commerce está documentada em detalhes em [PROJETO-LOJA-QA.md]
 - `admin` (Administrador): controle global e auditoria (bloqueado para compra);
 - `blocked` (Suspenso): acesso negado.
 
+### 📜 Especificação OpenAPI / Swagger (YAML)
+O contrato completo da API contendo todos os endpoints, métodos, esquemas de entrada/saída, validações, mensagens de erro exatas e documentação detalhada das travas dos métodos `DELETE` está disponível em:
+- [`openapi.yaml`](openapi.yaml) (na raiz do projeto)
+- [`projetos-base/api-backend/openapi.yaml`](projetos-base/api-backend/openapi.yaml) (no diretório do backend)
+
+Pode ser importado diretamente no Swagger Editor, Swagger UI, Postman, Insomnia ou utilizado em automações de testes com Playwright.
+
+### 📮 Coleção e Ambientes do Postman (Testes Exploratórios)
+Para facilitar testes manuais, exploratórios e de integração, disponibilizamos a suíte pronta do Postman em [`postman/`](postman/):
+- **Coleção:** [`LojaQA.postman_collection.json`](postman/LojaQA.postman_collection.json) (Organizada em 7 módulos com scripts de captura de token automática e asserções);
+- **Ambiente Nuvem:** [`LojaQA-Nuvem.postman_environment.json`](postman/LojaQA-Nuvem.postman_environment.json);
+- **Ambiente Local:** [`LojaQA-Local.postman_environment.json`](postman/LojaQA-Local.postman_environment.json);
+- **Guia de Uso & Roteiro:** [`postman/README.md`](postman/README.md).
+
 ### Deploy do backend no Render
 
 No serviço da API, configure:

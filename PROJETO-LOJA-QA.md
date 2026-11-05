@@ -122,8 +122,8 @@
 
 ### 📊 Módulo 5: Painéis de Gestão (`painel.html`)
 * **CA-PNL-01 (Cliente):** Visualização de pedidos, timeline de rastreio e botão de impressão de comprovante.
-* **CA-PNL-02 (Lojista):** Cadastrar e editar **exclusivamente** os produtos pertencentes à sua loja (*Multi-Tenancy*).
-* **CA-PNL-03 (Admin):** Gestão global de usuários, alteração de perfis com senha de admin e moderação geral.
+* **CA-PNL-02 (Lojista):** Cadastrar, editar e excluir **exclusivamente** os produtos pertencentes à sua loja (*Multi-Tenancy*), respeitando as travas de integridade de vendas.
+* **CA-PNL-03 (Admin):** Gestão global de usuários, alteração de perfis com senha de admin, moderação geral e exclusão de contas com confirmação de senha administrativa.
 
 ---
 
@@ -241,7 +241,46 @@ Funcionalidade: Aplicação de Cupons Promocionais no Checkout
 > **🌐 Base URL Oficial (Nuvem / Render):** `https://api-qa-fap2026.onrender.com/api`  
 > **💻 Base URL Local (Caso execute o backend na sua máquina):** `http://localhost:3000/api`  
 > **Formato das Mensagens:** `Content-Type: application/json`  
-> **Autenticação:** Header `Authorization: Bearer <token_jwt>` (obtido após login bem-sucedido).
+> **Contrato OpenAPI 3.0 (YAML Oficial):** Arquivo [`openapi.yaml`](openapi.yaml) (ou [`projetos-base/api-backend/openapi.yaml`](projetos-base/api-backend/openapi.yaml)).  
+> **Coleção & Ambientes do Postman:** Disponíveis na pasta [`postman/`](postman/) ([Guia Postman](postman/README.md), [Coleção JSON](postman/LojaQA.postman_collection.json), [Ambiente Nuvem](postman/LojaQA-Nuvem.postman_environment.json) e [Ambiente Local](postman/LojaQA-Local.postman_environment.json)).
+
+> [!WARNING]
+> ### ⚠️ AVISO CRÍTICO DE ARQUITETURA & SEGURANÇA SOBRE OS MÉTODOS `DELETE`
+> **CARÁTER ESTRITAMENTE PEDAGÓGICO PARA AUTOMAÇÃO COM PLAYWRIGHT (TEARDOWN):**
+> 1. **Por que o método `DELETE` existe nesta API?**  
+>    Ele está habilitado **exclusivamente para fins didáticos** nas aulas de automação de testes de API com Playwright, Cypress e Postman, permitindo exercitar o ciclo de vida completo do CRUD e o conceito de **Teardown** (o teste cria uma massa com `POST` e a apaga ao final com `DELETE` para manter os testes isolados e limpos).
+> 2. **Por que o `DELETE` físico é evitado e quase nunca ativado em sistemas reais de produção?**  
+>    Em empresas e plataformas reais de e-commerce, o **Hard Delete (exclusão física) é proibido** por causar:
+>    - **Inconsistência de Dados & Registros Órfãos:** Excluir produtos ou clientes que já compraram destrói a integridade dos pedidos passados (`Order`), quebrando relatórios contábeis, notas fiscais e auditorias fiscais;
+>    - **Segurança & Fraude:** Evita que usuários mal-intencionados, invasores ou erros operacionais apaguem cadastros, produtos ou históricos legítimos;
+>    - **Soft Delete como Padrão de Mercado:** Em produção, utiliza-se **desativação lógica** (`active: false` para produtos e `role: 'blocked'` para usuários suspensos).
+> 3. **Travas Anti-Caos da API do Curso:**  
+>    Para permitir que toda a turma teste junta sem um aluno quebrar o teste dos outros, o backend rejeita tentativas de excluir os dados do seed com **`403 Forbidden`** e dados que possuem pedidos com **`409 Conflict`**.
+
+---
+
+### 📋 Matriz de Endpoints, Autenticação e Perfis (RBAC)
+
+| Método | Rota | Autenticação Obrigatória? | Perfil Mínimo | Objetivo / Operação |
+|---|---|:---:|---|---|
+| `GET` | `/api/health` | ❌ Pública | Qualquer | Verificação de status e versão da API |
+| `POST` | `/api/login` | ❌ Pública | Qualquer | Autenticação e emissão do Token JWT (Rate Limit: 5/15min) |
+| `POST` | `/api/register` | ❌ Pública | Qualquer | Cadastro de novos clientes (`user`) ou lojistas (`seller`) |
+| `POST` | `/api/forgot-password`| ❌ Pública | Qualquer | Solicitação de link de recuperação de senha por e-mail |
+| `POST` | `/api/reset-password` | ❌ Pública | Qualquer | Aplicação de nova senha com token recebido por e-mail |
+| `GET` | `/api/products` | ❌ Pública | Qualquer | Catálogo de produtos ativos com busca e filtros |
+| `GET` | `/api/products/categories`| ❌ Pública | Qualquer | Lista de categorias ativas na vitrine |
+| `POST` | `/api/orders` | 🔒 **Sim (Token JWT)** | `user`, `seller`, `admin` | Criação de pedido de compra e baixa no estoque |
+| `GET` | `/api/orders/me` | 🔒 **Sim (Token JWT)** | `user`, `seller`, `admin` | Histórico dos pedidos realizados pelo usuário logado |
+| `GET` | `/api/seller/products` | 🔒 **Sim (Token JWT)** | `seller` ou `admin` | Listagem dos produtos pertencentes à loja do lojista |
+| `POST` | `/api/seller/products` | 🔒 **Sim (Token JWT)** | `seller` ou `admin` | Cadastro de novo produto para a loja |
+| `PUT` | `/api/seller/products/:id` | 🔒 **Sim (Token JWT)** | `seller` ou `admin` | Edição de produto ou desativação (*Soft Delete* via `active: false`) |
+| `DELETE`| `/api/seller/products/:id` | 🔒 **Sim (Token JWT)** | `seller` ou `admin` | Exclusão física (*Hard Delete*) **Pedagógica com Travas** |
+| `GET` | `/api/seller/orders` | 🔒 **Sim (Token JWT)** | `seller` ou `admin` | Pedidos contendo produtos vendidos pela loja |
+| `PUT` | `/api/seller/orders/:id/status`| 🔒 **Sim (Token JWT)** | `seller` ou `admin` | Atualização do status de rastreio/entrega do pedido |
+| `GET` | `/api/users` | 🔒 **Sim (Token JWT)** | `admin` | Listagem completa de todos os usuários da base |
+| `PUT` | `/api/users/:id` | 🔒 **Sim (Token JWT)** | `admin` | Atualização de perfil, dados ou bloqueio (`role: blocked`) |
+| `DELETE`| `/api/users/:id` | 🔒 **Sim (Token JWT)** | `admin` (+ senha admin) | Exclusão física (*Hard Delete*) **Pedagógica com Travas** |
 
 ---
 
@@ -356,6 +395,37 @@ Funcionalidade: Aplicação de Cupons Promocionais no Checkout
   ```
 * **Resposta Esperada:** `201 Created` `{ "message": "Produto criado com sucesso!", "product": { ... } }`.
 
+#### `PUT /api/seller/products/:id`
+* **Autenticação Obrigatória:** `Authorization: Bearer <token_lojista>` ou `<token_admin>`
+* **Descrição:** Atualiza os dados de um produto da loja (ou realiza o *Soft Delete* enviando `"active": false`).
+* **Corpo da Requisição (JSON):**
+  ```json
+  {
+    "name": "Headset Gamer Pro Atualizado",
+    "price": 349.90,
+    "stock": 10,
+    "active": true
+  }
+  ```
+* **Respostas Esperadas:**
+  * `200 OK`: `{ "message": "Produto atualizado com sucesso.", "product": { ... } }`
+  * `403 Forbidden`: Se tentar atualizar produto de outra loja sem ser admin.
+  * `404 Not Found`: `{ "error": "Produto não encontrado ou sem permissão." }`
+
+#### `DELETE /api/seller/products/:id`
+* **Autenticação Obrigatória:** `Authorization: Bearer <token_lojista>` ou `<token_admin>`
+* **Descrição:** Exclui fisicamente um produto do catálogo. Ideal para o ciclo de testes automatizados e rotinas de **Teardown** (limpeza de massa descartável criada nos testes).
+* **Travas de Segurança Aplicadas:**
+  * 🔒 **Anti-Caos (Seed):** Bloqueia exclusão de produtos base do sistema (`Teclado Mecânico Aurora`, `Mouse Óptico Atlas`, `Headset Nexo`);
+  * 🔒 **Integridade Referencial:** Bloqueia exclusão se o produto já fez parte de algum pedido de compra registrado;
+  * 🔒 **Multi-Tenancy:** Lojista só pode deletar produtos cadastrados por sua própria loja.
+* **Respostas Esperadas:**
+  * `200 OK`: `{ "message": "Produto excluído com sucesso.", "id": "64f1a2b3..." }`
+  * `400 Bad Request`: `{ "error": "ID de produto inválido." }`
+  * `403 Forbidden`: `{ "error": "Proibido: produtos padrão do catálogo oficial não podem ser excluídos." }` ou falta de permissão na loja.
+  * `404 Not Found`: `{ "error": "Produto não encontrado." }`
+  * `409 Conflict`: `{ "error": "Conflito de integridade: este produto possui pedidos vinculados ao histórico de vendas. Utilize a desativação lógica (active: false)." }`
+
 #### `PUT /api/seller/orders/:id/status`
 * **Autenticação Obrigatória:** `Authorization: Bearer <token_lojista>`
 * **Descrição:** Altera o status de entrega do pedido.
@@ -383,5 +453,113 @@ Funcionalidade: Aplicação de Cupons Promocionais no Checkout
   ```
 * **Respostas Esperadas:**
   * `200 OK`: `{ "message": "Usuário atualizado com sucesso!", "user": { ... } }`
-  * `401 Unauthorized`: `{ "error": "Senha administrativa incorreta" }`
+  * `401 Unauthorized`: `{ "error": "Senha do administrador inválida para alterar este perfil." }`
+
+#### `DELETE /api/users/:id`
+* **Autenticação Obrigatória:** `Authorization: Bearer <token_admin>`
+* **Descrição:** Exclui fisicamente um usuário do sistema. Criado especialmente para automações de teste de cadastro onde o teste de API precisa limpar a massa criada ao final do cenário.
+* **Autorização Adicional:** Requer a senha do administrador via Body (`adminPassword`), Header (`x-admin-password: AdminPassword123`) ou Query Param (`?adminPassword=AdminPassword123`).
+* **Travas de Segurança Aplicadas:**
+  * 🔒 **Anti-Caos (Seed da Turma):** Bloqueia a exclusão dos usuários essenciais (`admin@system.com`, `user@system.com`, `lojista@system.com`, `blocked@system.com`, `slow@system.com`);
+  * 🔒 **Anti-Auto-Exclusão:** O administrador não pode excluir sua própria conta conectada;
+  * 🔒 **Integridade Referencial:** Bloqueia a exclusão se o usuário tiver histórico de compras (`Order`) ou produtos cadastrados.
+* **Respostas Esperadas:**
+  * `200 OK`: `{ "message": "Usuário excluído com sucesso.", "id": "64f1..." }`
+  * `400 Bad Request`: `{ "error": "ID de usuário inválido." }` ou tentativa de auto-exclusão do admin logado.
+  * `401 Unauthorized`: `{ "error": "Senha administrativa incorreta ou não fornecida para autorizar a exclusão." }`
+  * `403 Forbidden`: `{ "error": "Proibido: usuários padrão do sistema não podem ser excluídos." }`
+  * `404 Not Found`: `{ "error": "Usuário não encontrado." }`
+  * `409 Conflict`: `{ "error": "Conflito de integridade: este usuário possui pedidos ou produtos vinculados ao histórico. Utilize a suspensão de acesso (role: 'blocked')." }`
+
+---
+
+### 🧪 11.6 Guia de Travas de Segurança & Automação com Playwright (DELETE & Teardown)
+
+#### 🎯 Por que a API possui "Travas de Segurança" nos métodos DELETE?
+
+Em ambientes profissionais de desenvolvimento e em **plataformas de teste compartilhadas por turmas de alunos**, o método HTTP `DELETE` físico (*Hard Delete*) é a operação mais sensível e arriscada.
+
+1. **Proteção contra Caos em Massa Compartilhada:** Se a API não possuísse a trava de e-mails/nomes protegidos, um aluno com erro de loop ou script em Playwright poderia deletar o `admin@system.com` ou a vitrine inteira no Render, quebrando os testes de todos os outros 30 colegas na mesma aula.
+2. **Integridade de Negócio (E-commerce Real):** Um pedido de compra (`Order`) faz vínculo direto com o ID do cliente e o ID dos produtos comprados. Excluir o registro físico no banco causaria erro de dados órfãos e *null pointers* em relatórios contábeis, notas fiscais e telas de pedidos.
+3. **Didática de QA (Status Codes Ricos):** Permite aos alunos testarem não apenas o caminho feliz (`200 OK`), mas também códigos HTTP fundamentais do protocolo REST como `401 Unauthorized`, `403 Forbidden`, `404 Not Found` e `409 Conflict`.
+
+---
+
+#### 💻 Exemplo Prático de Teste de API no Playwright
+
+Abaixo está o padrão recomendado de teste automatizado usando `@playwright/test` aplicando o ciclo completo (CRUD) e **Teardown**:
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+const BASE_URL = 'http://localhost:3000/api'; // Ou a URL da nuvem no Render
+
+test.describe('Automação de API - Ciclo de Vida do Produto com DELETE (Teardown)', () => {
+    let tokenLojista: string;
+    let produtoId: string;
+
+    test.beforeAll(async ({ request }) => {
+        // 1. Autenticar como Lojista
+        const loginRes = await request.post(`${BASE_URL}/login`, {
+            data: { email: 'lojista@system.com', password: 'SellerPass123' }
+        });
+        expect(loginRes.status()).toBe(200);
+        const loginData = await loginRes.json();
+        tokenLojista = loginData.token;
+    });
+
+    test('Deve cadastrar produto temporário e executar o Teardown com DELETE', async ({ request }) => {
+        // PASSO 1: CREATE (POST)
+        const postRes = await request.post(`${BASE_URL}/seller/products`, {
+            headers: { Authorization: `Bearer ${tokenLojista}` },
+            data: {
+                name: 'Produto Teste Playwright ' + Date.now(),
+                price: 99.90,
+                stock: 15,
+                category: 'Acessórios',
+                description: 'Produto criado exclusivamente para validação de automação'
+            }
+        });
+        expect(postRes.status()).toBe(201);
+        const postData = await postRes.json();
+        produtoId = postData.product._id;
+        expect(produtoId).toBeDefined();
+
+        // PASSO 2: READ (GET)
+        const getRes = await request.get(`${BASE_URL}/products?search=${produtoId}`);
+        expect(getRes.status()).toBe(200);
+
+        // PASSO 3: TEARDOWN / DELETE (Limpeza de massa de teste)
+        const deleteRes = await request.delete(`${BASE_URL}/seller/products/${produtoId}`, {
+            headers: { Authorization: `Bearer ${tokenLojista}` }
+        });
+        expect(deleteRes.status()).toBe(200);
+        const deleteData = await deleteRes.json();
+        expect(deleteData.message).toContain('Produto excluído com sucesso');
+
+        // PASSO 4: VERIFICAR SE FOI REALMENTE APAGADO
+        const verifyRes = await request.delete(`${BASE_URL}/seller/products/${produtoId}`, {
+            headers: { Authorization: `Bearer ${tokenLojista}` }
+        });
+        expect(verifyRes.status()).toBe(404); // Deve retornar Not Found na segunda tentativa
+    });
+
+    test('Deve rejeitar a exclusão de produtos protegidos do catálogo padrão (Trava Seed)', async ({ request }) => {
+        // Busca produto padrão 'Teclado Mecânico Aurora'
+        const listRes = await request.get(`${BASE_URL}/products?search=Aurora`);
+        const products = await listRes.json();
+        const aurora = products.find((p: any) => p.name === 'Teclado Mecânico Aurora');
+
+        if (aurora) {
+            const deleteRes = await request.delete(`${BASE_URL}/seller/products/${aurora._id}`, {
+                headers: { Authorization: `Bearer ${tokenLojista}` }
+            });
+            // Espera bloqueio 403 Forbidden pela trava anti-caos
+            expect(deleteRes.status()).toBe(403);
+            const body = await deleteRes.json();
+            expect(body.error).toContain('produtos padrão do catálogo oficial não podem ser excluídos');
+        }
+    });
+});
+```
 
