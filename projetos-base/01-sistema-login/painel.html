@@ -51,33 +51,145 @@
 
 
 
-            <!-- SEÇÃO DO LOJISTA -->
+            <!-- SEÇÃO DO LOJISTA (GESTÃO DE ESTOQUE E PEDIDOS) -->
             <section id="sellerSection" class="panel-section hidden">
                 <div class="section-title">
                     <div>
-                        <p class="eyebrow">LOJA</p>
-                        <h2>Minha loja</h2>
+                        <p class="eyebrow">ESTOQUE &amp; CATÁLOGO</p>
+                        <h2 id="sellerStoreTitle">Gestão de Estoque da Loja</h2>
+                        <p class="section-description">Monitore a quantidade física de produtos, gerencie categorias, preços e ordens de venda da sua loja parceira.</p>
                     </div>
-                    <button class="primary-button" id="newProductButton" type="button">Novo produto</button>
+                    <button class="primary-button" id="newProductButton" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Novo Produto
+                    </button>
                 </div>
+
+                <!-- KPIS DE ESTOQUE DO LOJISTA -->
+                <div class="metric-grid seller-kpi-grid" id="sellerStockKpis">
+                    <article>
+                        <span>Total de Produtos (SKUs)</span>
+                        <strong id="kpiTotalSkus">0</strong>
+                    </article>
+                    <article>
+                        <span>Unidades em Estoque</span>
+                        <strong id="kpiTotalUnits">0</strong>
+                    </article>
+                    <article>
+                        <span>Estoque Crítico / Esgotados</span>
+                        <strong id="kpiCriticalStock" style="color: var(--orange);">0</strong>
+                    </article>
+                    <article>
+                        <span>Valor em Mercadorias</span>
+                        <strong id="kpiInventoryValue">R$ 0,00</strong>
+                    </article>
+                </div>
+
+                <!-- FORMULÁRIO DE CADASTRO/EDIÇÃO (COLAPSÁVEL) -->
                 <form id="productForm" class="product-form hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 8px;">
+                        <div>
+                            <h3 id="productFormTitle" style="margin: 0; font-size: 16px; font-weight: 700;">Cadastrar Novo Produto</h3>
+                            <span id="productFormSubtitle" style="font-size: 12px; color: var(--muted);">Preencha as informações do produto</span>
+                        </div>
+                        <button type="button" class="close-form-btn" onclick="resetProductForm()" aria-label="Fechar formulário">×</button>
+                    </div>
                     <input id="productId" type="hidden">
-                    <input id="productName" maxlength="120" placeholder="Nome do produto" required>
-                    <input id="productCategory" maxlength="60" placeholder="Categoria" required>
-                    <input id="productPrice" type="number" min="0" step="0.01" placeholder="Preço" required>
-                    <input id="productStock" type="number" min="0" step="1" placeholder="Estoque" required>
-                    <textarea id="productDescription" maxlength="1000" placeholder="Descrição"></textarea>
-                    <input id="productImage" type="url" placeholder="URL da imagem">
+                    <div class="form-row-2">
+                        <div>
+                            <label class="form-label" for="productName">Nome do Produto *</label>
+                            <input id="productName" maxlength="120" placeholder="Ex: Headset Gamer Pro 7.1" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="productCategory">Categoria *</label>
+                            <input id="productCategory" list="categoriesDatalist" maxlength="60" placeholder="Selecione ou digite..." required>
+                            <datalist id="categoriesDatalist"></datalist>
+                        </div>
+                    </div>
+                    <div class="form-row-3">
+                        <div>
+                            <label class="form-label" for="productPrice">Preço de Venda (R$) *</label>
+                            <input id="productPrice" type="number" min="0" step="0.01" placeholder="0.00" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="productStock">Quantidade em Estoque *</label>
+                            <input id="productStock" type="number" min="0" step="1" placeholder="0" required>
+                        </div>
+                        <div>
+                            <label class="form-label" for="productActive">Visibilidade na Vitrine</label>
+                            <select id="productActive">
+                                <option value="true">✅ Ativo (Visível na loja)</option>
+                                <option value="false">⏸️ Inativo (Soft Delete)</option>
+                            </select>
+                        </div>
+                    </div>
                     <div>
-                        <button class="primary-button" type="submit">Salvar produto</button>
+                        <label class="form-label" for="productImage">URL da Imagem do Produto</label>
+                        <input id="productImage" type="url" placeholder="https://exemplo.com/imagem.jpg">
+                    </div>
+                    <div>
+                        <label class="form-label" for="productDescription">Descrição do Produto</label>
+                        <textarea id="productDescription" maxlength="1000" placeholder="Detalhes, especificações e diferenciais do produto..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button class="primary-button" type="submit" id="saveProductBtn">Salvar Produto</button>
                         <button class="ghost-button" id="cancelProductButton" type="button">Cancelar</button>
                     </div>
                 </form>
-                <div id="sellerProducts" class="data-list"></div>
-                <div class="section-title subheading">
+
+                <!-- BARRA DE FILTROS & PESQUISA DE ESTOQUE -->
+                <div class="seller-toolbar">
+                    <input id="sellerProductSearch" type="search" placeholder="🔍 Buscar por nome, código (#PRD...) ou categoria...">
+                    <select id="sellerCategoryFilter">
+                        <option value="all">Todas as Categorias</option>
+                    </select>
+                    <select id="sellerStockFilter">
+                        <option value="all">Qualquer Estoque</option>
+                        <option value="normal">Em Estoque (> 5 un)</option>
+                        <option value="low">Estoque Baixo (1 a 5 un)</option>
+                        <option value="empty">Esgotados (0 un)</option>
+                    </select>
+                    <select id="sellerStatusFilter">
+                        <option value="all">Todos os Status</option>
+                        <option value="active">Apenas Ativos</option>
+                        <option value="inactive">Apenas Ocultos (Soft Delete)</option>
+                    </select>
+                    <select id="sellerSortFilter">
+                        <option value="name-asc">Nome (A - Z)</option>
+                        <option value="stock-desc">Maior Estoque</option>
+                        <option value="stock-asc">Menor Estoque</option>
+                        <option value="price-desc">Maior Preço</option>
+                        <option value="price-asc">Menor Preço</option>
+                    </select>
+                </div>
+
+                <!-- CHIPS RÁPIDOS DE CATEGORIA -->
+                <div class="category-chips-bar" id="sellerCategoryChips"></div>
+
+                <!-- RESUMO DE ITENS FILTRADOS E TOGGLE DE VISÃO -->
+                <div class="stock-header-actions">
+                    <div id="sellerProductsSummary" class="users-summary" style="margin: 0;"></div>
+                    <div class="view-toggle-btns">
+                        <button type="button" class="view-btn active" id="btnViewFlat" onclick="setSellerViewMode('flat')" title="Visualização em Lista">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                            Lista
+                        </button>
+                        <button type="button" class="view-btn" id="btnViewGrouped" onclick="setSellerViewMode('grouped')" title="Agrupar por Categoria">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                            Por Categorias
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LISTA/TABELA DE PRODUTOS DO ESTOQUE -->
+                <div id="sellerProducts" class="seller-products-container"></div>
+
+                <!-- SEÇÃO DE PEDIDOS DA LOJA COM ALTERAÇÃO DE STATUS -->
+                <div class="section-title subheading" style="margin-top: 48px;">
                     <div>
-                        <p class="eyebrow">OPERAÇÃO</p>
-                        <h2>Pedidos da loja</h2>
+                        <p class="eyebrow">OPERAÇÃO DE VENDAS</p>
+                        <h2>Pedidos Recebidos pela Loja</h2>
+                        <p class="section-description">Acompanhe as vendas dos produtos da sua loja e atualize o status de rastreio/entrega para os clientes.</p>
                     </div>
                 </div>
                 <div id="sellerOrders" class="data-list"></div>

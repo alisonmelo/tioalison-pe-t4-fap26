@@ -1245,3 +1245,500 @@ button, input, select, textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* ======================================================== */
+/* --- PAINEL DO LOJISTA: CONTROLE DE ESTOQUE AVANÇADO --- */
+/* ======================================================== */
+
+.seller-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-bottom: 24px;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 14px;
+}
+
+.form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 5px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.close-form-btn {
+    border: 0;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.close-form-btn:hover {
+    color: var(--orange);
+}
+
+/* Toolbar de Filtros do Lojista */
+.seller-toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.seller-toolbar input,
+.seller-toolbar select {
+    flex: 1;
+    min-width: 160px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.seller-toolbar input[type="search"] {
+    min-width: 240px;
+    flex: 1.5;
+}
+
+.seller-toolbar input:focus,
+.seller-toolbar select:focus {
+    outline: none;
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px rgba(23, 34, 28, 0.08);
+}
+
+/* Category Chips */
+.category-chips-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+    scrollbar-width: thin;
+}
+
+.category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.category-chip:hover {
+    border-color: var(--ink);
+    background: #fafaf7;
+}
+
+.category-chip.active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+}
+
+.category-chip .chip-count {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #f0f0ea;
+    color: var(--ink);
+}
+
+.category-chip.active .chip-count {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+}
+
+/* Header & View Toggles */
+.stock-header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.view-toggle-btns {
+    display: flex;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.view-btn {
+    border: 0;
+    background: transparent;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    transition: all 0.15s;
+}
+
+.view-btn.active {
+    background: var(--ink);
+    color: #fff;
+}
+
+/* Container de Produtos */
+.seller-products-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.category-stock-group {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 8px rgba(23, 34, 28, 0.03);
+}
+
+.category-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.category-pill-header {
+    background: #f0f4ec;
+    border: 1px solid #d0dec7;
+    color: #17221c;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stock-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Card do Produto no Estoque */
+.stock-product-card {
+    display: grid;
+    grid-template-columns: 1.8fr 1.3fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.stock-product-card:hover {
+    border-color: #bcc6b7;
+    box-shadow: 0 4px 12px rgba(23, 34, 28, 0.04);
+}
+
+.stock-product-card.is-paused {
+    background: #fcfcf9;
+    opacity: 0.85;
+    border-style: dashed;
+}
+
+.stock-product-card.is-depleted {
+    border-left: 4px solid #ef4444;
+}
+
+.stock-card-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.product-thumb {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #f4f3ed;
+    flex-shrink: 0;
+}
+
+.product-thumb-placeholder {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #f4f3ed;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.stock-card-details {
+    min-width: 0;
+}
+
+.stock-card-tags {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.category-pill-small {
+    background: #f4f3ed;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.stock-product-title {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.3;
+}
+
+.stock-card-sub {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.code-id {
+    background: #f4f3ed;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--ink);
+}
+
+/* Área de Estoque e Preço */
+.stock-card-inventory {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.stock-price-block {
+    min-width: 100px;
+}
+
+.price-label, .stock-label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+}
+
+.stock-product-price {
+    font: 700 16px 'Space Grotesk', sans-serif;
+    color: var(--ink);
+}
+
+.stock-control-box {
+    flex: 1;
+}
+
+.stock-qty-stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.qty-step-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.qty-step-btn:hover {
+    background: #f0f0ea;
+    border-color: var(--ink);
+}
+
+.qty-display {
+    min-width: 38px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    font-family: 'Space Grotesk', monospace;
+}
+
+/* Badges de Estoque */
+.badge-stock {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge-stock.normal {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-stock.low {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.badge-stock.empty {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* Badges de Visibilidade */
+.badge-visibility {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.badge-visibility.active {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #047857;
+}
+
+.badge-visibility.inactive {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #64748b;
+}
+
+/* Botões de Ação */
+.stock-card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.stock-card-actions .ghost-button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.danger-button {
+    color: #dc2626 !important;
+}
+
+.danger-button:hover {
+    border-color: #dc2626 !important;
+    background: #fef2f2 !important;
+    color: #b91c1c !important;
+}
+
+/* Pedidos do Lojista */
+.seller-order-row {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1.2fr;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 18px;
+}
+
+.order-status-select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+    width: 100%;
+}
+
+.order-status-select.pending { border-color: #f59e0b; color: #b45309; background: #fffbeb; }
+.order-status-select.paid { border-color: #10b981; color: #047857; background: #ecfdf5; }
+.order-status-select.shipped { border-color: #3b82f6; color: #1d4ed8; background: #eff6ff; }
+.order-status-select.delivered { border-color: #059669; color: #065f46; background: #ecfdf5; }
+.order-status-select.cancelled { border-color: #ef4444; color: #b91c1c; background: #fef2f2; }
+
+@media (max-width: 900px) {
+    .stock-product-card {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .stock-card-inventory {
+        justify-content: space-between;
+    }
+    .seller-order-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .form-row-2, .form-row-3 {
+        grid-template-columns: 1fr;
+    }
+}

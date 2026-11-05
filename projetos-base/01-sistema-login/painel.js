@@ -281,87 +281,511 @@ function printOrderReceipt() {
     window.print();
 }
 
-// --- PAINEL DO LOJISTA (COM ID VISUAL DE PRODUTO) ---
+// --- PAINEL DO LOJISTA (CONTROLE AVANÇADO DE ESTOQUE, CATEGORIAS & PEDIDOS) ---
+const sellerState = {
+    products: [],
+    orders: [],
+    selectedCategory: 'all',
+    viewMode: 'flat' // 'flat' ou 'grouped'
+};
+
 async function loadSellerData() {
     try {
-        const [products, orders] = await Promise.all([api('/seller/products'), api('/seller/orders')]);
-        window.sellerProducts = products;
+        const [products, orders] = await Promise.all([
+            api('/seller/products'),
+            api('/seller/orders')
+        ]);
         
-        document.getElementById('sellerProducts').innerHTML = products.length 
-            ? products.map(product => `
-                <article class="data-row">
-                    <div>
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                            <span class="product-id-tag">${formatProductId(product._id)}</span>
-                            <strong>${escapeHtml(product.name)}</strong>
-                        </div>
-                        <span>Código: <code>${product._id}</code> · ${escapeHtml(product.category)} · ${product.stock} em estoque</span>
-                    </div>
-                    <strong>${money(product.price)}</strong>
-                    <button class="ghost-button" onclick="editProduct('${product._id}')">Editar</button>
-                </article>
-            `).join('') 
-            : '<div class="empty">Cadastre o primeiro produto da sua loja.</div>';
-            
-        document.getElementById('sellerOrders').innerHTML = orders.length 
-            ? orders.map(order => `
-                <article class="data-row">
-                    <div>
-                        <strong>${formatOrderId(order._id)}</strong>
-                        <span>${escapeHtml(order.customerId?.name || order.customerId?.email || 'Cliente')} · ID: <code>${order._id}</code></span>
-                    </div>
-                    <strong>${money(order.total)}</strong>
-                    <span class="status">${order.status.toUpperCase()}</span>
-                </article>
-            `).join('') 
-            : '<div class="empty">Nenhum pedido recebido para sua loja até o momento.</div>';
+        sellerState.products = products || [];
+        sellerState.orders = orders || [];
+        window.sellerProducts = sellerState.products;
+
+        // Atualiza título da loja se houver
+        const storeTitle = document.getElementById('sellerStoreTitle');
+        if (storeTitle && user.storeName) {
+            storeTitle.textContent = `Gestão de Estoque · ${user.storeName}`;
+        }
+
+        updateSellerKpis();
+        populateSellerCategoryFilter();
+        renderSellerCategoryChips();
+        renderSellerProducts();
+        renderSellerOrders();
     } catch (error) { 
         showNotice(error.message, true); 
     }
 }
 
-function resetProductForm() { 
-    document.getElementById('productForm').reset(); 
-    document.getElementById('productId').value = ''; 
-    document.getElementById('productForm').classList.add('hidden'); 
+function updateSellerKpis() {
+    const products = sellerState.products;
+    const totalSkus = products.length;
+    const totalUnits = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
+    const criticalStock = products.filter(p => (Number(p.stock) || 0) <= 5).length;
+    const inventoryValue = products.reduce((sum, p) => sum + ((Number(p.price) || 0) * (Number(p.stock) || 0)), 0);
+
+    const elSkus = document.getElementById('kpiTotalSkus');
+    const elUnits = document.getElementById('kpiTotalUnits');
+    const elCritical = document.getElementById('kpiCriticalStock');
+    const elValue = document.getElementById('kpiInventoryValue');
+
+    if (elSkus) elSkus.textContent = totalSkus;
+    if (elUnits) elUnits.textContent = totalUnits;
+    if (elCritical) elCritical.textContent = criticalStock;
+    if (elValue) elValue.textContent = money(inventoryValue);
 }
 
-function editProduct(id) { 
-    const product = window.sellerProducts.find(item => item._id === id); 
-    if (!product) return; 
-    document.getElementById('productForm').classList.remove('hidden'); 
-    document.getElementById('productId').value = product._id; 
-    document.getElementById('productName').value = product.name; 
-    document.getElementById('productCategory').value = product.category; 
-    document.getElementById('productPrice').value = product.price; 
-    document.getElementById('productStock').value = product.stock; 
-    document.getElementById('productDescription').value = product.description || ''; 
-    document.getElementById('productImage').value = product.image || ''; 
+function populateSellerCategoryFilter() {
+    const select = document.getElementById('sellerCategoryFilter');
+    const datalist = document.getElementById('categoriesDatalist');
+    if (!select) return;
+
+    const currentVal = select.value;
+    const categories = Array.from(new Set(sellerState.products.map(p => p.category?.trim()).filter(Boolean))).sort();
+
+    select.innerHTML = '<option value="all">Todas as Categorias</option>' + 
+        categories.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+
+    if (categories.includes(currentVal)) {
+        select.value = currentVal;
+    }
+
+    if (datalist) {
+        datalist.innerHTML = categories.map(cat => `<option value="${escapeHtml(cat)}">`).join('');
+    }
 }
 
-async function saveProduct(event) { 
-    event.preventDefault(); 
-    const id = document.getElementById('productId').value; 
-    const body = { 
-        name: document.getElementById('productName').value, 
-        category: document.getElementById('productCategory').value, 
-        price: Number(document.getElementById('productPrice').value), 
-        stock: Number(document.getElementById('productStock').value), 
-        description: document.getElementById('productDescription').value, 
-        image: document.getElementById('productImage').value 
-    }; 
-    
-    try { 
-        await api(id ? `/seller/products/${id}` : '/seller/products', { 
-            method: id ? 'PUT' : 'POST', 
-            body: JSON.stringify(body) 
-        }); 
-        resetProductForm(); 
-        loadSellerData(); 
-        showNotice('Produto salvo com sucesso!'); 
-    } catch (error) { 
-        showNotice(error.message, true); 
-    } 
+function renderSellerCategoryChips() {
+    const chipsContainer = document.getElementById('sellerCategoryChips');
+    if (!chipsContainer) return;
+
+    const products = sellerState.products;
+    const categoriesMap = {};
+    products.forEach(p => {
+        const cat = p.category?.trim() || 'Sem Categoria';
+        categoriesMap[cat] = (categoriesMap[cat] || 0) + 1;
+    });
+
+    const categories = Object.keys(categoriesMap).sort();
+    const isAll = sellerState.selectedCategory === 'all';
+
+    let html = `
+        <button type="button" class="category-chip ${isAll ? 'active' : ''}" onclick="selectSellerCategory('all')">
+            Todas <span class="chip-count">${products.length}</span>
+        </button>
+    `;
+
+    categories.forEach(cat => {
+        const isActive = sellerState.selectedCategory === cat;
+        html += `
+            <button type="button" class="category-chip ${isActive ? 'active' : ''}" onclick="selectSellerCategory('${escapeHtml(cat)}')">
+                ${escapeHtml(cat)} <span class="chip-count">${categoriesMap[cat]}</span>
+            </button>
+        `;
+    });
+
+    chipsContainer.innerHTML = html;
+}
+
+function selectSellerCategory(category) {
+    sellerState.selectedCategory = category;
+    const select = document.getElementById('sellerCategoryFilter');
+    if (select) select.value = category;
+    renderSellerCategoryChips();
+    renderSellerProducts();
+}
+
+function setSellerViewMode(mode) {
+    sellerState.viewMode = mode;
+    document.getElementById('btnViewFlat')?.classList.toggle('active', mode === 'flat');
+    document.getElementById('btnViewGrouped')?.classList.toggle('active', mode === 'grouped');
+    renderSellerProducts();
+}
+
+function getFilteredSellerProducts() {
+    const search = (document.getElementById('sellerProductSearch')?.value || '').trim().toLowerCase();
+    const category = sellerState.selectedCategory;
+    const stock = document.getElementById('sellerStockFilter')?.value || 'all';
+    const status = document.getElementById('sellerStatusFilter')?.value || 'all';
+    const sort = document.getElementById('sellerSortFilter')?.value || 'name-asc';
+
+    return sellerState.products.filter(product => {
+        // Busca textual
+        if (search) {
+            const visualId = formatProductId(product._id).toLowerCase();
+            const rawId = String(product._id).toLowerCase();
+            const name = (product.name || '').toLowerCase();
+            const cat = (product.category || '').toLowerCase();
+            const desc = (product.description || '').toLowerCase();
+            const matches = visualId.includes(search) || rawId.includes(search) || name.includes(search) || cat.includes(search) || desc.includes(search);
+            if (!matches) return false;
+        }
+
+        // Categoria
+        if (category !== 'all' && (product.category?.trim() || 'Sem Categoria') !== category) {
+            return false;
+        }
+
+        // Nível de estoque
+        const qty = Number(product.stock) || 0;
+        if (stock === 'normal' && qty <= 5) return false;
+        if (stock === 'low' && (qty < 1 || qty > 5)) return false;
+        if (stock === 'empty' && qty !== 0) return false;
+
+        // Status ativo / inativo
+        const isActive = product.active !== false;
+        if (status === 'active' && !isActive) return false;
+        if (status === 'inactive' && isActive) return false;
+
+        return true;
+    }).sort((a, b) => {
+        if (sort === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+        if (sort === 'stock-desc') return (b.stock || 0) - (a.stock || 0);
+        if (sort === 'stock-asc') return (a.stock || 0) - (b.stock || 0);
+        if (sort === 'price-desc') return (b.price || 0) - (a.price || 0);
+        if (sort === 'price-asc') return (a.price || 0) - (b.price || 0);
+        return 0;
+    });
+}
+
+function renderSellerProducts() {
+    const container = document.getElementById('sellerProducts');
+    const summary = document.getElementById('sellerProductsSummary');
+    if (!container) return;
+
+    const filtered = getFilteredSellerProducts();
+    const total = sellerState.products.length;
+
+    if (summary) {
+        summary.innerHTML = `Exibindo <strong>${filtered.length}</strong> de <strong>${total}</strong> produtos no estoque`;
+    }
+
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="empty">
+                <p style="font-size: 15px; font-weight: 700; margin: 0 0 6px;">Nenhum produto encontrado</p>
+                <span>Tente ajustar os filtros de categoria, nível de estoque ou o termo de busca.</span>
+            </div>
+        `;
+        return;
+    }
+
+    if (sellerState.viewMode === 'grouped') {
+        // Agrupa por Categoria
+        const groups = {};
+        filtered.forEach(p => {
+            const cat = p.category?.trim() || 'Geral';
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(p);
+        });
+
+        const groupKeys = Object.keys(groups).sort();
+        container.innerHTML = groupKeys.map(cat => {
+            const items = groups[cat];
+            const catUnits = items.reduce((sum, item) => sum + (Number(item.stock) || 0), 0);
+            return `
+                <div class="category-stock-group">
+                    <div class="category-group-header">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="category-pill-header">${escapeHtml(cat)}</span>
+                            <span class="badge-count">${items.length} produto${items.length > 1 ? 's' : ''}</span>
+                        </div>
+                        <span style="font-size: 12px; color: var(--muted); font-weight: 600;">Estoque total: <strong>${catUnits} un</strong></span>
+                    </div>
+                    <div class="stock-cards-list">
+                        ${items.map(p => renderSingleSellerProductCard(p)).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        // Visualização em Lista Flat
+        container.innerHTML = `
+            <div class="stock-cards-list">
+                ${filtered.map(p => renderSingleSellerProductCard(p)).join('')}
+            </div>
+        `;
+    }
+}
+
+function renderSingleSellerProductCard(product) {
+    const qty = Number(product.stock) || 0;
+    const isActive = product.active !== false;
+
+    // Badge de Estoque
+    let stockBadgeHtml = '';
+    if (qty === 0) {
+        stockBadgeHtml = `<span class="badge-stock empty">❌ Esgotado</span>`;
+    } else if (qty <= 5) {
+        stockBadgeHtml = `<span class="badge-stock low">⚠️ Estoque Baixo (${qty} un)</span>`;
+    } else {
+        stockBadgeHtml = `<span class="badge-stock normal">✅ Em Estoque (${qty} un)</span>`;
+    }
+
+    // Badge de Visibilidade
+    const visibilityBadgeHtml = isActive
+        ? `<span class="badge-visibility active" title="Visível para compra na vitrine">Ativo na Loja</span>`
+        : `<span class="badge-visibility inactive" title="Oculto da vitrine (Soft Delete)">Oculto / Pausado</span>`;
+
+    // Imagem
+    const imageHtml = product.image
+        ? `<img class="product-thumb" src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" onerror="this.src='https://placehold.co/80x80/f4f3ed/17221c?text=Sem+Foto'">`
+        : `<div class="product-thumb-placeholder">📦</div>`;
+
+    return `
+        <article class="stock-product-card ${!isActive ? 'is-paused' : ''} ${qty === 0 ? 'is-depleted' : ''}">
+            <div class="stock-card-main">
+                ${imageHtml}
+                <div class="stock-card-details">
+                    <div class="stock-card-tags">
+                        <span class="product-id-tag">${formatProductId(product._id)}</span>
+                        <span class="category-pill-small">${escapeHtml(product.category || 'Geral')}</span>
+                        ${visibilityBadgeHtml}
+                    </div>
+                    <h4 class="stock-product-title">${escapeHtml(product.name)}</h4>
+                    <div class="stock-card-sub">
+                        <span>ID API: <code class="code-id">${product._id}</code></span>
+                        ${product.description ? `<span>· ${escapeHtml(product.description.slice(0, 75))}${product.description.length > 75 ? '...' : ''}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <!-- PREÇO E CONTROLE RÁPIDO DE ESTOQUE -->
+            <div class="stock-card-inventory">
+                <div class="stock-price-block">
+                    <span class="price-label">Preço Unitário</span>
+                    <strong class="stock-product-price">${money(product.price)}</strong>
+                </div>
+
+                <div class="stock-control-box">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <span class="stock-label">Estoque Físico</span>
+                        ${stockBadgeHtml}
+                    </div>
+                    <!-- CONTROLE DE AJUSTE RÁPIDO (+ / -) -->
+                    <div class="stock-qty-stepper">
+                        <button type="button" class="qty-step-btn" onclick="quickAdjustStock('${product._id}', -1)" title="Subtrair 1 unidade">-</button>
+                        <span class="qty-display">${qty}</span>
+                        <button type="button" class="qty-step-btn" onclick="quickAdjustStock('${product._id}', 1)" title="Adicionar 1 unidade">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AÇÕES COMPLETAS DO ESTOQUE -->
+            <div class="stock-card-actions">
+                <button type="button" class="ghost-button btn-edit" onclick="editProduct('${product._id}')" title="Editar dados e preço">
+                    ✏️ Editar
+                </button>
+                <button type="button" class="ghost-button btn-toggle" onclick="toggleProductActive('${product._id}')" title="${isActive ? 'Ocultar da vitrine (Soft Delete)' : 'Reativar na vitrine'}">
+                    ${isActive ? '⏸️ Ocultar' : '▶️ Ativar'}
+                </button>
+                <button type="button" class="ghost-button danger-button" onclick="deleteProduct('${product._id}')" title="Excluir definitivamente (Hard Delete)">
+                    🗑️ Excluir
+                </button>
+            </div>
+        </article>
+    `;
+}
+
+function openNewProductForm() {
+    resetProductForm();
+    document.getElementById('productFormTitle').textContent = 'Cadastrar Novo Produto';
+    document.getElementById('productFormSubtitle').textContent = 'Preencha os dados para disponibilizar no catálogo da sua loja';
+    document.getElementById('saveProductBtn').textContent = 'Cadastrar Produto';
+    const form = document.getElementById('productForm');
+    form.classList.remove('hidden');
+    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.getElementById('productName')?.focus();
+}
+
+function resetProductForm() {
+    const form = document.getElementById('productForm');
+    if (!form) return;
+    form.reset();
+    document.getElementById('productId').value = '';
+    document.getElementById('productActive').value = 'true';
+    form.classList.add('hidden');
+}
+
+function editProduct(id) {
+    const product = sellerState.products.find(item => item._id === id);
+    if (!product) return;
+
+    const form = document.getElementById('productForm');
+    form.classList.remove('hidden');
+    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    document.getElementById('productFormTitle').textContent = `Editar Produto: ${product.name}`;
+    document.getElementById('productFormSubtitle').textContent = `Atualize os dados e clique em "Salvar Alterações"`;
+    document.getElementById('saveProductBtn').textContent = 'Salvar Alterações';
+
+    document.getElementById('productId').value = product._id;
+    document.getElementById('productName').value = product.name;
+    document.getElementById('productCategory').value = product.category;
+    document.getElementById('productPrice').value = product.price;
+    document.getElementById('productStock').value = product.stock;
+    document.getElementById('productActive').value = String(product.active !== false);
+    document.getElementById('productDescription').value = product.description || '';
+    document.getElementById('productImage').value = product.image || '';
+    document.getElementById('productName').focus();
+}
+
+async function saveProduct(event) {
+    event.preventDefault();
+    const id = document.getElementById('productId').value;
+    const isEdit = Boolean(id);
+
+    const body = {
+        name: document.getElementById('productName').value.trim(),
+        category: document.getElementById('productCategory').value.trim(),
+        price: Number(document.getElementById('productPrice').value),
+        stock: Number(document.getElementById('productStock').value),
+        active: document.getElementById('productActive').value === 'true',
+        description: document.getElementById('productDescription').value.trim(),
+        image: document.getElementById('productImage').value.trim()
+    };
+
+    try {
+        await api(isEdit ? `/seller/products/${id}` : '/seller/products', {
+            method: isEdit ? 'PUT' : 'POST',
+            body: JSON.stringify(body)
+        });
+
+        resetProductForm();
+        await loadSellerData();
+        showNotice(isEdit ? 'Produto atualizado com sucesso!' : 'Produto cadastrado com sucesso!');
+    } catch (error) {
+        showNotice(error.message, true);
+    }
+}
+
+async function quickAdjustStock(id, delta) {
+    const product = sellerState.products.find(item => item._id === id);
+    if (!product) return;
+
+    const currentStock = Number(product.stock) || 0;
+    const newStock = Math.max(0, currentStock + delta);
+    if (newStock === currentStock) return;
+
+    try {
+        await api(`/seller/products/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ stock: newStock })
+        });
+
+        product.stock = newStock;
+        updateSellerKpis();
+        renderSellerProducts();
+        showNotice(`Estoque de "${product.name}" ajustado para ${newStock} un.`);
+    } catch (error) {
+        showNotice(error.message, true);
+    }
+}
+
+async function toggleProductActive(id) {
+    const product = sellerState.products.find(item => item._id === id);
+    if (!product) return;
+
+    const newActive = !(product.active !== false);
+
+    try {
+        await api(`/seller/products/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ active: newActive })
+        });
+
+        product.active = newActive;
+        renderSellerProducts();
+        showNotice(newActive 
+            ? `Produto "${product.name}" ativado na vitrine pública!` 
+            : `Produto "${product.name}" pausado (Soft Delete - oculto da vitrine)!`);
+    } catch (error) {
+        showNotice(error.message, true);
+    }
+}
+
+async function deleteProduct(id) {
+    const product = sellerState.products.find(item => item._id === id);
+    if (!product) return;
+
+    const confirmMsg = `Deseja realmente EXCLUIR definitivamente o produto:\n\n"${product.name}" (#PRD-${formatProductId(product._id).replace('PRD-', '')})?\n\n⚠️ Atenção: Esta é uma exclusão física definitiva (Hard Delete). Se este produto tiver histórico de pedidos ou fizer parte da massa protegida do sistema, a API rejeitará com trava de segurança.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    try {
+        await api(`/seller/products/${id}`, {
+            method: 'DELETE'
+        });
+
+        showNotice(`Produto "${product.name}" excluído com sucesso!`);
+        await loadSellerData();
+    } catch (error) {
+        // Exibe erro com destaque caso acione as travas pedagógicas (403 ou 409)
+        showNotice(`Erro na exclusão: ${error.message}`, true);
+    }
+}
+
+function renderSellerOrders() {
+    const ordersContainer = document.getElementById('sellerOrders');
+    if (!ordersContainer) return;
+
+    const orders = sellerState.orders;
+
+    if (!orders || orders.length === 0) {
+        ordersContainer.innerHTML = '<div class="empty">Nenhum pedido recebido para sua loja até o momento.</div>';
+        return;
+    }
+
+    ordersContainer.innerHTML = orders.map(order => {
+        const orderIdFormatted = formatOrderId(order._id);
+        const customerName = escapeHtml(order.customerId?.name || order.customerId?.email || 'Cliente');
+        const orderDate = new Date(order.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        return `
+            <article class="data-row seller-order-row">
+                <div class="seller-order-info">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span class="product-id-tag" style="background:#fef3c7; border-color:#f59e0b; color:#92400e;">${orderIdFormatted}</span>
+                        <strong>${customerName}</strong>
+                    </div>
+                    <span>Data: ${orderDate} · ID API: <code class="code-id">${order._id}</code></span>
+                    ${order.shippingAddress ? `<div style="font-size:12px; color:var(--muted); margin-top:2px;">📍 ${escapeHtml(order.shippingAddress)}</div>` : ''}
+                </div>
+
+                <div class="seller-order-financial">
+                    <span style="font-size:11px; color:var(--muted); display:block;">Total do Pedido</span>
+                    <strong>${money(order.total)}</strong>
+                </div>
+
+                <div class="seller-order-status-control">
+                    <label style="font-size:11px; color:var(--muted); display:block; margin-bottom:3px; font-weight:600;">Status do Envio:</label>
+                    <select class="order-status-select ${order.status}" onchange="updateSellerOrderStatus('${order._id}', this.value)">
+                        <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>⏳ Pendente</option>
+                        <option value="paid" ${order.status === 'paid' ? 'selected' : ''}>💳 Aprovado / Pago</option>
+                        <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>🚚 Enviado (A caminho)</option>
+                        <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>✅ Entregue</option>
+                        <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>❌ Cancelado</option>
+                    </select>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+async function updateSellerOrderStatus(orderId, newStatus) {
+    try {
+        await api(`/seller/orders/${orderId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        const order = sellerState.orders.find(o => o._id === orderId);
+        if (order) order.status = newStatus;
+
+        showNotice(`Status do pedido atualizado com sucesso para "${newStatus.toUpperCase()}"!`);
+        renderSellerOrders();
+    } catch (error) {
+        showNotice(error.message, true);
+    }
 }
 
 // ========================================================
@@ -888,11 +1312,27 @@ document.getElementById('logoutButton').addEventListener('click', () => {
     window.location.replace('loja.html'); 
 });
 
-document.getElementById('newProductButton')?.addEventListener('click', () => document.getElementById('productForm').classList.remove('hidden'));
+document.getElementById('newProductButton')?.addEventListener('click', openNewProductForm);
 document.getElementById('cancelProductButton')?.addEventListener('click', resetProductForm);
 document.getElementById('productForm')?.addEventListener('submit', saveProduct);
 
-// Filtros em tempo real
+// Filtros do Lojista em tempo real
+['sellerProductSearch', 'sellerCategoryFilter', 'sellerStockFilter', 'sellerStatusFilter', 'sellerSortFilter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        const handler = () => {
+            if (id === 'sellerCategoryFilter') {
+                sellerState.selectedCategory = el.value;
+                renderSellerCategoryChips();
+            }
+            renderSellerProducts();
+        };
+        el.addEventListener('input', handler);
+        el.addEventListener('change', handler);
+    }
+});
+
+// Filtros do Admin em tempo real
 ['adminUserSearch', 'adminUserRole'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', () => renderUsers(1));
